@@ -1,0 +1,7 @@
+[project]
+name = "tennis"
+version = "0.1.0"
+description = "网球机器人的树莓派端程序"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
