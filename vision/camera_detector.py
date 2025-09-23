@@ -18,15 +18,15 @@ class CameraDetector:
         初始化摄像头检测器
         
         Args:
-            model_path: ONNX模型路径
+            model_path: TensorFlow Lite模型路径
             camera_id: 摄像头ID (通常为0)
             conf_threshold: 置信度阈值
         """
         self.camera_id = camera_id
         self.model_path = model_path
         
-        # 初始化YOLOv11检测器
-        print("正在加载YOLOv11模型...")
+        # 初始化YOLOv8 TensorFlow Lite检测器
+        print("正在加载YOLOv8 TensorFlow Lite模型...")
         self.detector = YOLODetector(model_path, conf_threshold=conf_threshold)
         print("模型加载完成!")
         
@@ -50,9 +50,9 @@ class CameraDetector:
             return False
         
         # 设置摄像头参数
-        # 设置分辨率为640x640以匹配模型输入
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 320)
+        # 设置分辨率 (实际输入尺寸将从模型中获取)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         
         # 设置帧率
         self.cap.set(cv2.CAP_PROP_FPS, 30)
@@ -248,9 +248,9 @@ class FPSCounter:
 
 def main():
     """主函数"""
-    parser = argparse.ArgumentParser(description='YOLOv11网球实时检测')
-    parser.add_argument('--model', type=str, default='vision/model/best.onnx',
-                       help='ONNX模型路径')
+    parser = argparse.ArgumentParser(description='YOLOv8网球实时检测 (TensorFlow Lite)')
+    parser.add_argument('--model', type=str, default='vision/model/model_int8.tflite',
+                       help='TensorFlow Lite模型路径')
     parser.add_argument('--camera', type=int, default=0,
                        help='摄像头ID')
     parser.add_argument('--conf', type=float, default=0.5,

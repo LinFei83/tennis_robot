@@ -1,24 +1,25 @@
 """
-YOLOv11 ONNX 网球检测器
+YOLOv8 TensorFlow Lite 网球检测器
 用于在树莓派上实时检测网球位置
+使用量化为INT8的TensorFlow Lite模型进行推理
 """
 
 import cv2
 import numpy as np
-import onnxruntime as ort
+import tensorflow as tf
 from typing import List, Tuple, Optional
 import time
 
 
 class YOLODetector:
-    """YOLOv11 ONNX模型网球检测器"""
+    """YOLOv8 TensorFlow Lite模型网球检测器"""
     
     def __init__(self, model_path: str, conf_threshold: float = 0.5, nms_threshold: float = 0.4):
         """
         初始化检测器
         
         Args:
-            model_path: ONNX模型文件路径
+            model_path: TensorFlow Lite模型文件路径
             conf_threshold: 置信度阈值
             nms_threshold: NMS阈值
         """
@@ -26,31 +27,30 @@ class YOLODetector:
         self.conf_threshold = conf_threshold
         self.nms_threshold = nms_threshold
         
-        # 初始化ONNX Runtime会话
-        self.session = self._load_model()
+        # 初始化TensorFlow Lite解释器
+        self.interpreter = self._load_model()
         
         # 获取模型输入输出信息
-        self.input_name = self.session.get_inputs()[0].name
-        self.output_name = self.session.get_outputs()[0].name
+        self.input_details = self.interpreter.get_input_details()
+        self.output_details = self.interpreter.get_output_details()
         
-        # 模型输入尺寸 (YOLOv11通常是640x640)
-        self.input_width = 320
-        self.input_height = 320
+        # 从模型中获取输入尺寸
+        input_shape = self.input_details[0]['shape']
+        self.input_height = input_shape[1]
+        self.input_width = input_shape[2]
         
-    def _load_model(self) -> ort.InferenceSession:
-        """加载ONNX模型"""
+        print(f"模型输入尺寸: {self.input_width}x{self.input_height}")
+        print(f"输入数据类型: {self.input_details[0]['dtype']}")
+        
+    def _load_model(self) -> tf.lite.Interpreter:
+        """加载TensorFlow Lite模型"""
         try:
-            # 为树莓派优化的提供者设置
-            providers = [
-                'CPUExecutionProvider'  # 树莓派主要使用CPU
-            ]
+            # 创建TensorFlow Lite解释器
+            interpreter = tf.lite.Interpreter(model_path=self.model_path)
+            interpreter.allocate_tensors()
             
-            session = ort.InferenceSession(
-                self.model_path,
-                providers=providers
-            )
-            print(f"成功加载模型: {self.model_path}")
-            return session
+            print(f"成功加载TensorFlow Lite模型: {self.model_path}")
+            return interpreter
             
         except Exception as e:
             raise RuntimeError(f"无法加载模型 {self.model_path}: {e}")
@@ -80,11 +80,17 @@ class YOLODetector:
         # 转换为RGB
         rgb_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2RGB)
         
-        # 归一化到0-1
-        normalized_image = rgb_image.astype(np.float32) / 255.0
+        # 检查输入数据类型
+        input_dtype = self.input_details[0]['dtype']
         
-        # 转换为NCHW格式 (批次, 通道, 高度, 宽度)
-        input_tensor = np.transpose(normalized_image, (2, 0, 1))
+        if input_dtype == np.int8:
+            # 对于INT8量化模型，将图像从[0,255]范围转换为[-128,127]范围
+            input_tensor = rgb_image.astype(np.int8) - 128
+        else:
+            # 对于float32模型，归一化到[0,1]范围
+            input_tensor = rgb_image.astype(np.float32) / 255.0
+        
+        # 添加批次维度 (NHWC格式: 批次, 高度, 宽度, 通道)
         input_tensor = np.expand_dims(input_tensor, axis=0)
         
         return input_tensor, scale_x, scale_y
@@ -103,12 +109,13 @@ class YOLODetector:
         """
         detections = []
         
-        # YOLOv11输出格式: [batch, 84, 8400] 其中84 = 4(bbox) + 80(classes)
-        # 对于单类别(网球)，输出应该是 [batch, 5, num_anchors] 其中5 = 4(bbox) + 1(conf)
+        # YOLOv8输出格式通常是 [batch, num_detections, 85] 
+        # 其中85 = 4(bbox) + 1(objectness) + 80(classes)
+        # 对于单类别(网球)，可能是 [batch, num_detections, 6] 其中6 = 4(bbox) + 1(objectness) + 1(class)
         output = outputs[0]  # 移除批次维度
         
-        if output.shape[0] == 5:  # [5, num_anchors] 格式
-            # 转置为 [num_anchors, 5]
+        # 如果输出是 [num_classes, num_detections] 格式，需要转置
+        if len(output.shape) == 2 and output.shape[0] < output.shape[1]:
             output = output.transpose()
         
         for detection in output:
@@ -118,23 +125,29 @@ class YOLODetector:
                 
                 # 过滤低置信度检测
                 if confidence >= self.conf_threshold:
-                    # 转换为原始图像坐标
-                    x_center *= scale_x
-                    y_center *= scale_y
-                    width *= scale_x
-                    height *= scale_y
+                    # 修复后：先转换为像素坐标，再缩放到原始图像（正确）
+                    x_center_pixels = x_center * self.input_width
+                    y_center_pixels = y_center * self.input_height
+                    width_pixels = width * self.input_width
+                    height_pixels = height * self.input_height
+                    
+                    # 缩放到原始图像尺寸
+                    x_center_orig = x_center_pixels * scale_x
+                    y_center_orig = y_center_pixels * scale_y
+                    width_orig = width_pixels * scale_x
+                    height_orig = height_pixels * scale_y
                     
                     # 计算边界框坐标
-                    x1 = int(x_center - width / 2)
-                    y1 = int(y_center - height / 2)
-                    x2 = int(x_center + width / 2)
-                    y2 = int(y_center + height / 2)
+                    x1 = int(x_center_orig - width_orig / 2)
+                    y1 = int(y_center_orig - height_orig / 2)
+                    x2 = int(x_center_orig + width_orig / 2)
+                    y2 = int(y_center_orig + height_orig / 2)
                     
                     detections.append({
                         'bbox': (x1, y1, x2, y2),
                         'confidence': float(confidence),
                         'class_id': 0,  # 网球类别ID
-                        'center': (int(x_center), int(y_center))
+                        'center': (int(x_center_orig), int(y_center_orig))
                     })
         
         # 应用非极大值抑制
@@ -181,8 +194,17 @@ class YOLODetector:
         # 预处理
         input_tensor, scale_x, scale_y = self.preprocess(image)
         
-        # 推理
-        outputs = self.session.run([self.output_name], {self.input_name: input_tensor})
+        # 设置输入张量
+        self.interpreter.set_tensor(self.input_details[0]['index'], input_tensor)
+        
+        # 运行推理
+        self.interpreter.invoke()
+        
+        # 获取输出张量
+        outputs = []
+        for output_detail in self.output_details:
+            output = self.interpreter.get_tensor(output_detail['index'])
+            outputs.append(output)
         
         # 后处理
         detections = self.postprocess(outputs[0], scale_x, scale_y)
