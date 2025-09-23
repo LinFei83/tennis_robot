@@ -10,3 +10,5 @@ dependencies = [
     "onnxruntime>=1.16.0",
     "Pillow>=10.0.0"
 ]
+
+

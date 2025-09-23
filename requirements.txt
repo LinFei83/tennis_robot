@@ -1,0 +1,8 @@
+# NumPy - 数值计算 (固定1.x版本以兼容tflite-runtime)
+numpy>=1.21.0,<2.0.0
+
+# TensorFlow Lite运行时 - 专为树莓派优化
+tflite-runtime>=2.13.0
+
+# OpenCV - 计算机视觉库
+opencv-python>=4.8.0
