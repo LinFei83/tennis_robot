@@ -1,0 +1,17 @@
+{
+  "camera": {
+    "index": 0,
+    "fps": 30,
+    "buffer_size": 5
+  },
+  "image_settings": {
+    "brightness": 128,
+    "contrast": 128,
+    "saturation": 128,
+    "exposure": -6
+  },
+  "detection": {
+    "confidence_threshold": 0.6,
+    "iou_threshold": 0.5
+  }
+}

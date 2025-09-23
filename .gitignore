@@ -8,3 +8,13 @@ wheels/
 
 # Virtual environments
 .venv
+*.jpg
+*.png
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.ico
+*.webp
+*.svg
+*.heic

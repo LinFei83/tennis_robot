@@ -9,6 +9,7 @@ import numpy as np
 import tflite_runtime.interpreter as tflite
 import time
 import os
+import json
 from datetime import datetime
 
 class TennisDetector:
@@ -245,13 +246,86 @@ class TennisDetector:
         print(f"原始图像已保存: {filepath}")
 
 
+def load_camera_config(config_path="camera_config.json"):
+    """
+    加载摄像头配置文件
+    
+    Args:
+        config_path: 配置文件路径
+        
+    Returns:
+        config: 配置字典
+    """
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        print(f"成功加载配置文件: {config_path}")
+        return config
+    except FileNotFoundError:
+        print(f"配置文件不存在: {config_path}，使用默认配置")
+        return {
+            "camera": {"index": 0, "fps": 30, "buffer_size": 5},
+            "image_settings": {"brightness": 128, "contrast": 128, "saturation": 128, "exposure": -6},
+            "detection": {"confidence_threshold": 0.6, "iou_threshold": 0.5}
+        }
+    except json.JSONDecodeError as e:
+        print(f"配置文件格式错误: {e}，使用默认配置")
+        return {
+            "camera": {"index": 0, "fps": 30, "buffer_size": 5},
+            "image_settings": {"brightness": 128, "contrast": 128, "saturation": 128, "exposure": -6},
+            "detection": {"confidence_threshold": 0.6, "iou_threshold": 0.5}
+        }
+
+
+def apply_camera_settings(cap, config):
+    """
+    应用摄像头设置
+    
+    Args:
+        cap: 摄像头对象
+        config: 配置字典
+    """
+    camera_config = config.get("camera", {})
+    image_config = config.get("image_settings", {})
+    
+    # 基础摄像头参数
+    cap.set(cv2.CAP_PROP_FPS, camera_config.get("fps", 30))
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, camera_config.get("buffer_size", 5))
+    
+    # 图像质量参数
+    try:
+        if "brightness" in image_config:
+            cap.set(cv2.CAP_PROP_BRIGHTNESS, image_config["brightness"])
+            print(f"设置亮度: {image_config['brightness']}")
+        
+        if "contrast" in image_config:
+            cap.set(cv2.CAP_PROP_CONTRAST, image_config["contrast"])
+            print(f"设置对比度: {image_config['contrast']}")
+        
+        if "saturation" in image_config:
+            cap.set(cv2.CAP_PROP_SATURATION, image_config["saturation"])
+            print(f"设置饱和度: {image_config['saturation']}")
+        
+        if "exposure" in image_config:
+            # 先关闭自动曝光
+            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)  # 手动曝光模式
+            cap.set(cv2.CAP_PROP_EXPOSURE, image_config["exposure"])
+            print(f"设置曝光: {image_config['exposure']}")
+            
+    except Exception as e:
+        print(f"警告: 设置摄像头参数时出错: {e}")
+
+
 def main():
     """主函数"""
+    # 加载配置
+    config = load_camera_config()
+    
     # 配置参数
     MODEL_PATH = "/home/ubuntu/project/tennis_robot/vision/model/model_int8_v8.tflite"
-    CAMERA_INDEX = 0  # USB摄像头索引
-    CONFIDENCE_THRESHOLD = 0.6
-    IOU_THRESHOLD = 0.5
+    CAMERA_INDEX = config["camera"].get("index", 0)
+    CONFIDENCE_THRESHOLD = config["detection"].get("confidence_threshold", 0.6)
+    IOU_THRESHOLD = config["detection"].get("iou_threshold", 0.5)
     
     # 初始化检测器
     print("正在加载模型...")
@@ -270,19 +344,9 @@ def main():
     print(f"设置摄像头分辨率为模型输入尺寸: {detector.input_width}x{detector.input_height}")
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, detector.input_width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, detector.input_height)
-    cap.set(cv2.CAP_PROP_FPS, 30)
     
-    # 优化摄像头缓冲区设置以减少延迟
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # 设置缓冲区大小为1，减少延迟
-    
-    # 尝试设置其他优化参数
-    try:
-        # 禁用自动曝光以获得更稳定的帧率
-        cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)  # 手动曝光模式
-        # 设置较快的曝光时间
-        cap.set(cv2.CAP_PROP_EXPOSURE, -6)  # 较快的曝光时间
-    except:
-        print("警告: 某些摄像头参数设置失败，将使用默认值")
+    # 应用配置文件中的摄像头设置
+    apply_camera_settings(cap, config)
     
     # 验证实际设置的分辨率
     actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -302,29 +366,35 @@ def main():
     frame_count = 0
     start_time = time.time()
     
-    def get_latest_frame(cap):
+    # 自适应帧跳过参数
+    skip_frames = 1
+    recent_detection_times = []
+    
+    def get_latest_frame(cap, skip_frames=1):
         """
-        清空摄像头缓冲区并获取最新帧
-        通过快速读取多帧来丢弃旧的缓冲帧
-        """
-        # 清空缓冲区：快速读取并丢弃旧帧
-        for _ in range(5):  # 读取并丢弃最多5帧旧数据
-            ret = cap.grab()  # grab()比read()更快，只获取不解码
-            if not ret:
-                break
+        智能获取最新帧，根据处理时间自适应跳过帧数
         
-        # 获取并解码最新帧
-        ret, frame = cap.retrieve()  # retrieve()解码最后grab()的帧
-        if not ret:
-            # 如果retrieve()失败，尝试常规read()
-            ret, frame = cap.read()
+        Args:
+            cap: 摄像头对象
+            skip_frames: 要跳过的帧数
+        """
+        frame = None
+        ret = False
+        
+        # 根据skip_frames参数跳过相应数量的帧
+        for i in range(max(1, skip_frames)):
+            ret, current_frame = cap.read()
+            if ret:
+                frame = current_frame
+            else:
+                break
         
         return ret, frame
 
     try:
         while True:
-            # 获取最新帧（清空缓冲区后的最新图像）
-            ret, frame = get_latest_frame(cap)
+            # 获取最新帧（自适应跳过帧数）
+            ret, frame = get_latest_frame(cap, skip_frames)
             if not ret:
                 print("错误: 无法读取摄像头帧")
                 break
@@ -334,12 +404,28 @@ def main():
             boxes, scores = detector.detect(frame)
             detection_time = time.time() - detection_start
             
+            # 更新检测时间历史，用于自适应调整
+            recent_detection_times.append(detection_time)
+            if len(recent_detection_times) > 10:  # 只保留最近10次的检测时间
+                recent_detection_times.pop(0)
+            
+            # 自适应调整跳过帧数
+            if len(recent_detection_times) >= 5:
+                avg_detection_time = sum(recent_detection_times) / len(recent_detection_times)
+                target_fps = 10  # 目标FPS
+                frame_time = 1.0 / target_fps  # 每帧目标时间
+                
+                if avg_detection_time > frame_time * 0.8:  # 如果检测时间占用超过80%的帧时间
+                    skip_frames = min(3, skip_frames + 1)  # 增加跳过帧数，但不超过3
+                elif avg_detection_time < frame_time * 0.3:  # 如果检测时间很快
+                    skip_frames = max(1, skip_frames - 1)  # 减少跳过帧数，但至少为1
+            
             # 绘制检测结果
             annotated_frame = detector.draw_detections(frame, boxes, scores)
             
             # 显示性能信息
             fps = frame_count / (time.time() - start_time + 1e-6)
-            info_text = f"FPS: {fps:.1f} | {detection_time*1000:.1f}ms | {len(boxes)} | Latest"
+            info_text = f"FPS: {fps:.1f} | {detection_time*1000:.1f}ms | {len(boxes)} | Skip:{skip_frames}"
             cv2.putText(annotated_frame, info_text, (10, 30), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
             
