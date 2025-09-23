@@ -8,6 +8,8 @@ import cv2
 import numpy as np
 import tflite_runtime.interpreter as tflite
 import time
+import os
+from datetime import datetime
 
 class TennisDetector:
     def __init__(self, model_path, confidence_threshold=0.5, iou_threshold=0.5):
@@ -203,12 +205,50 @@ class TennisDetector:
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
         
         return annotated_image
+    
+    def save_full_screenshot(self, annotated_image, base_dir="screenshot"):
+        """
+        保存完整的窗口截图（包含检测框和文字）
+        
+        Args:
+            annotated_image: 带标注的图像
+            base_dir: 基础截图保存目录
+        """
+        full_dir = os.path.join(base_dir, "full_screenshots")
+        if not os.path.exists(full_dir):
+            os.makedirs(full_dir)
+            
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"full_screenshot_{timestamp}.jpg"
+        filepath = os.path.join(full_dir, filename)
+        
+        cv2.imwrite(filepath, annotated_image)
+        print(f"完整截图已保存: {filepath}")
+    
+    def save_raw_screenshot(self, raw_image, base_dir="screenshot"):
+        """
+        保存摄像头原始图像（不含检测框和文字）
+        
+        Args:
+            raw_image: 原始摄像头图像
+            base_dir: 基础截图保存目录
+        """
+        raw_dir = os.path.join(base_dir, "raw_images")
+        if not os.path.exists(raw_dir):
+            os.makedirs(raw_dir)
+            
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"raw_image_{timestamp}.jpg"
+        filepath = os.path.join(raw_dir, filename)
+        
+        cv2.imwrite(filepath, raw_image)
+        print(f"原始图像已保存: {filepath}")
 
 
 def main():
     """主函数"""
     # 配置参数
-    MODEL_PATH = "/home/ubuntu/project/tennis_robot/vision/model/model_int8_v5.tflite"
+    MODEL_PATH = "/home/ubuntu/project/tennis_robot/vision/model/model_int8_v8.tflite"
     CAMERA_INDEX = 0  # USB摄像头索引
     CONFIDENCE_THRESHOLD = 0.6
     IOU_THRESHOLD = 0.5
@@ -241,7 +281,10 @@ def main():
         print(f"警告: 摄像头不支持目标分辨率，将使用resize调整图像尺寸")
     
     print("摄像头初始化完成")
-    print("按 'q' 键退出程序")
+    print("按键说明:")
+    print("  's' - 保存完整截图（包含检测框和文字）")
+    print("  'r' - 保存原始图像（仅摄像头画面）")
+    print("  'q' - 退出程序")
     
     # 性能统计
     frame_count = 0
@@ -272,9 +315,16 @@ def main():
             # 显示结果
             cv2.imshow('Tennis Detection', annotated_frame)
             
-            # 检查退出键
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            # 检查按键
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
                 break
+            elif key == ord('s'):
+                # 保存完整截图（包含检测框和文字）
+                detector.save_full_screenshot(annotated_frame)
+            elif key == ord('r'):
+                # 保存原始图像（仅摄像头画面）
+                detector.save_raw_screenshot(frame)
                 
             frame_count += 1
     
