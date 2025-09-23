@@ -85,7 +85,8 @@ class YOLODetector:
         
         if input_dtype == np.int8:
             # 对于INT8量化模型，将图像从[0,255]范围转换为[-128,127]范围
-            input_tensor = rgb_image.astype(np.int8) - 128
+            # 先减去128再转换为int8，避免数据溢出
+            input_tensor = (rgb_image.astype(np.int16) - 128).astype(np.int8)
         else:
             # 对于float32模型，归一化到[0,1]范围
             input_tensor = rgb_image.astype(np.float32) / 255.0
