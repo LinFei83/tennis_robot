@@ -272,6 +272,18 @@ def main():
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, detector.input_height)
     cap.set(cv2.CAP_PROP_FPS, 30)
     
+    # 优化摄像头缓冲区设置以减少延迟
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # 设置缓冲区大小为1，减少延迟
+    
+    # 尝试设置其他优化参数
+    try:
+        # 禁用自动曝光以获得更稳定的帧率
+        cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)  # 手动曝光模式
+        # 设置较快的曝光时间
+        cap.set(cv2.CAP_PROP_EXPOSURE, -6)  # 较快的曝光时间
+    except:
+        print("警告: 某些摄像头参数设置失败，将使用默认值")
+    
     # 验证实际设置的分辨率
     actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -290,10 +302,29 @@ def main():
     frame_count = 0
     start_time = time.time()
     
+    def get_latest_frame(cap):
+        """
+        清空摄像头缓冲区并获取最新帧
+        通过快速读取多帧来丢弃旧的缓冲帧
+        """
+        # 清空缓冲区：快速读取并丢弃旧帧
+        for _ in range(5):  # 读取并丢弃最多5帧旧数据
+            ret = cap.grab()  # grab()比read()更快，只获取不解码
+            if not ret:
+                break
+        
+        # 获取并解码最新帧
+        ret, frame = cap.retrieve()  # retrieve()解码最后grab()的帧
+        if not ret:
+            # 如果retrieve()失败，尝试常规read()
+            ret, frame = cap.read()
+        
+        return ret, frame
+
     try:
         while True:
-            # 读取帧
-            ret, frame = cap.read()
+            # 获取最新帧（清空缓冲区后的最新图像）
+            ret, frame = get_latest_frame(cap)
             if not ret:
                 print("错误: 无法读取摄像头帧")
                 break
@@ -308,7 +339,7 @@ def main():
             
             # 显示性能信息
             fps = frame_count / (time.time() - start_time + 1e-6)
-            info_text = f"FPS: {fps:.1f} | {detection_time*1000:.1f}ms | {len(boxes)}"
+            info_text = f"FPS: {fps:.1f} | {detection_time*1000:.1f}ms | {len(boxes)} | Latest"
             cv2.putText(annotated_frame, info_text, (10, 30), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
             
