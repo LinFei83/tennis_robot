@@ -306,11 +306,10 @@ def apply_camera_settings(cap, config):
             cap.set(cv2.CAP_PROP_SATURATION, image_config["saturation"])
             print(f"设置饱和度: {image_config['saturation']}")
         
-        if "exposure" in image_config:
-            # 先关闭自动曝光
-            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)  # 手动曝光模式
-            cap.set(cv2.CAP_PROP_EXPOSURE, image_config["exposure"])
-            print(f"设置曝光: {image_config['exposure']}")
+        if "gain" in image_config:
+            # 使用增益控制替代曝光（如果摄像头支持）
+            cap.set(cv2.CAP_PROP_GAIN, image_config["gain"])
+            print(f"设置增益: {image_config['gain']}")
             
     except Exception as e:
         print(f"警告: 设置摄像头参数时出错: {e}")

@@ -26,23 +26,33 @@ class CameraTuner:
         # 加载现有配置
         self.config = self.load_config()
         
-        # 参数范围定义
+        # 参数范围定义（基于实际摄像头支持的属性）
         self.param_ranges = {
             'fps': {'min': 1, 'max': 60, 'default': 30},
-            'brightness': {'min': 0, 'max': 255, 'default': 128},
-            'contrast': {'min': 0, 'max': 255, 'default': 128},
+            'brightness': {'min': 0, 'max': 100, 'default': 30},      # 根据实际范围调整
+            'contrast': {'min': 0, 'max': 100, 'default': 29},        # 根据实际范围调整
             'saturation': {'min': 0, 'max': 255, 'default': 128},
-            'exposure': {'min': -15, 'max': 0, 'default': -6},
+            'gain': {'min': 0, 'max': 100, 'default': 0},             # 增益可以替代曝光控制
             'buffer_size': {'min': 1, 'max': 10, 'default': 5}
+        }
+        
+        # 参数显示名称映射（用于滑条显示）
+        self.param_display_names = {
+            'fps': 'zhenshu',           # 帧数
+            'brightness': 'liangdu',    # 亮度
+            'contrast': 'duibidu',      # 对比度
+            'saturation': 'baohedu',    # 饱和度
+            'gain': 'zengyi',           # 增益（替代曝光）
+            'buffer_size': 'huanchong'  # 缓冲
         }
         
         # 当前参数值
         self.current_params = {
             'fps': self.config['camera'].get('fps', 30),
-            'brightness': self.config['image_settings'].get('brightness', 128),
-            'contrast': self.config['image_settings'].get('contrast', 128),
+            'brightness': self.config['image_settings'].get('brightness', 30),
+            'contrast': self.config['image_settings'].get('contrast', 29),
             'saturation': self.config['image_settings'].get('saturation', 128),
-            'exposure': self.config['image_settings'].get('exposure', -6),
+            'gain': self.config['image_settings'].get('gain', 0),
             'buffer_size': self.config['camera'].get('buffer_size', 5)
         }
         
@@ -57,14 +67,14 @@ class CameraTuner:
             print(f"配置文件不存在，使用默认配置")
             return {
                 "camera": {"index": 0, "fps": 30, "buffer_size": 5},
-                "image_settings": {"brightness": 128, "contrast": 128, "saturation": 128, "exposure": -6},
+                "image_settings": {"brightness": 30, "contrast": 29, "saturation": 128, "gain": 0},
                 "detection": {"confidence_threshold": 0.6, "iou_threshold": 0.5}
             }
         except json.JSONDecodeError as e:
             print(f"配置文件格式错误: {e}，使用默认配置")
             return {
                 "camera": {"index": 0, "fps": 30, "buffer_size": 5},
-                "image_settings": {"brightness": 128, "contrast": 128, "saturation": 128, "exposure": -6},
+                "image_settings": {"brightness": 30, "contrast": 29, "saturation": 128, "gain": 0},
                 "detection": {"confidence_threshold": 0.6, "iou_threshold": 0.5}
             }
     
@@ -76,7 +86,7 @@ class CameraTuner:
         self.config['image_settings']['brightness'] = self.current_params['brightness']
         self.config['image_settings']['contrast'] = self.current_params['contrast']
         self.config['image_settings']['saturation'] = self.current_params['saturation']
-        self.config['image_settings']['exposure'] = self.current_params['exposure']
+        self.config['image_settings']['gain'] = self.current_params['gain']
         
         try:
             with open(self.config_path, 'w', encoding='utf-8') as f:
@@ -118,9 +128,8 @@ class CameraTuner:
             self.cap.set(cv2.CAP_PROP_CONTRAST, self.current_params['contrast'])
             self.cap.set(cv2.CAP_PROP_SATURATION, self.current_params['saturation'])
             
-            # 曝光需要特殊处理
-            self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)  # 手动曝光模式
-            self.cap.set(cv2.CAP_PROP_EXPOSURE, self.current_params['exposure'])
+            # 使用增益控制替代曝光（如果摄像头支持）
+            self.cap.set(cv2.CAP_PROP_GAIN, self.current_params['gain'])
             
         except Exception as e:
             print(f"应用参数时出错: {e}")
@@ -137,57 +146,29 @@ class CameraTuner:
         
         # 为每个参数创建滑条
         for param_name, param_info in self.param_ranges.items():
+            display_name = self.param_display_names[param_name]
             cv2.createTrackbar(
-                param_name,
+                display_name,
                 'Camera Tuner',
                 self.current_params[param_name],
                 param_info['max'] - param_info['min'],
                 lambda val, name=param_name: self.on_trackbar_change(val + self.param_ranges[name]['min'], name)
             )
             # 设置初始值
-            cv2.setTrackbarPos(param_name, 'Camera Tuner', 
+            cv2.setTrackbarPos(display_name, 'Camera Tuner', 
                              self.current_params[param_name] - param_info['min'])
     
     def display_info(self, frame):
-        """在图像上显示当前参数信息"""
-        info_text = [
-            f"FPS: {self.current_params['fps']}",
-            f"Brightness: {self.current_params['brightness']}",
-            f"Contrast: {self.current_params['contrast']}",
-            f"Saturation: {self.current_params['saturation']}",
-            f"Exposure: {self.current_params['exposure']}",
-            f"Buffer: {self.current_params['buffer_size']}"
-        ]
-        
-        # 绘制半透明背景
-        overlay = frame.copy()
-        cv2.rectangle(overlay, (10, 10), (300, 200), (0, 0, 0), -1)
-        cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
-        
-        # 绘制文本
-        for i, text in enumerate(info_text):
-            y_pos = 35 + i * 25
-            cv2.putText(frame, text, (20, y_pos), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
-        
-        # 添加操作说明
-        help_text = [
-            "Controls:",
-            "s - Save config",
-            "r - Reset to defaults", 
-            "q - Quit"
-        ]
-        
-        for i, text in enumerate(help_text):
-            y_pos = frame.shape[0] - 100 + i * 20
-            cv2.putText(frame, text, (20, y_pos), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+        """显示纯净的图像，不添加任何文字信息"""
+        # 不在图像上绘制任何文字，保持图像纯净
+        pass
     
     def reset_to_defaults(self):
         """重置为默认值"""
         for param_name, param_info in self.param_ranges.items():
             self.current_params[param_name] = param_info['default']
-            cv2.setTrackbarPos(param_name, 'Camera Tuner', 
+            display_name = self.param_display_names[param_name]
+            cv2.setTrackbarPos(display_name, 'Camera Tuner', 
                              param_info['default'] - param_info['min'])
         self.apply_params()
         print("参数已重置为默认值")
