@@ -11,7 +11,7 @@ import os
 from datetime import datetime
 
 class CameraTuner:
-    def __init__(self, camera_index=0, config_path="camera_config.json"):
+    def __init__(self, camera_index=0, config_path="vision/config/camera_config.json"):
         """
         初始化摄像头调整工具
         
@@ -230,7 +230,7 @@ def main():
     
     parser = argparse.ArgumentParser(description='摄像头参数调整工具')
     parser.add_argument('--camera', '-c', type=int, default=0, help='摄像头索引 (默认: 0)')
-    parser.add_argument('--config', type=str, default='camera_config.json', help='配置文件路径')
+    parser.add_argument('--config', type=str, default='vision/config/camera_config.json', help='配置文件路径')
     
     args = parser.parse_args()
     

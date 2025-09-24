@@ -246,7 +246,7 @@ class TennisDetector:
         print(f"原始图像已保存: {filepath}")
 
 
-def load_camera_config(config_path="camera_config.json"):
+def load_camera_config(config_path="vision/config/camera_config.json"):
     """
     加载摄像头配置文件
     
