@@ -1,0 +1,542 @@
+/* 网球机器人控制台样式 */
+
+/* 基础样式重置 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #333;
+    min-height: 100vh;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    min-height: 100vh;
+}
+
+/* 头部样式 */
+header {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+header h1 {
+    color: #2c3e50;
+    font-size: 2.5em;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.status-bar {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    flex-wrap: wrap;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-label {
+    font-weight: 600;
+    color: #555;
+}
+
+.status-value {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+.status-value.online {
+    background: #27ae60;
+    color: white;
+}
+
+.status-value.offline {
+    background: #e74c3c;
+    color: white;
+}
+
+/* 主要内容区域 */
+main {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+/* 面板通用样式 */
+section {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #ecf0f1;
+}
+
+.panel-header h2 {
+    color: #2c3e50;
+    font-size: 1.5em;
+    font-weight: 600;
+}
+
+/* 控制面板样式 */
+.control-panel {
+    min-height: fit-content;
+}
+
+.control-group {
+    margin-bottom: 25px;
+}
+
+.control-group h3 {
+    color: #34495e;
+    font-size: 1.2em;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.btn {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.btn-success {
+    background: #27ae60;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #229954;
+}
+
+.btn-danger {
+    background: #e74c3c;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #c0392b;
+}
+
+.btn-primary {
+    background: #3498db;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #2980b9;
+}
+
+.btn-warning {
+    background: #f39c12;
+    color: white;
+}
+
+.btn-warning:hover {
+    background: #e67e22;
+}
+
+/* 键盘帮助样式 */
+.keyboard-help {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+}
+
+.key-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.key {
+    display: inline-block;
+    padding: 8px 12px;
+    background: #34495e;
+    color: white;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.9em;
+    min-width: 40px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* 速度显示样式 */
+.velocity-display {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+}
+
+.velocity-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.velocity-label {
+    font-weight: 600;
+    color: #555;
+}
+
+.velocity-value {
+    font-weight: 700;
+    color: #2c3e50;
+    font-family: 'Courier New', monospace;
+}
+
+.velocity-unit {
+    color: #7f8c8d;
+    font-size: 0.9em;
+}
+
+/* 视频面板样式 */
+.video-panel {
+    position: relative;
+}
+
+.video-stats {
+    display: flex;
+    gap: 20px;
+    font-size: 0.9em;
+    color: #7f8c8d;
+    font-weight: 600;
+}
+
+.video-container {
+    position: relative;
+    background: #000;
+    border-radius: 10px;
+    overflow: hidden;
+    aspect-ratio: 4/3;
+}
+
+#video-stream {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.video-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.loading-spinner {
+    text-align: center;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #3498db;
+    border-top: 4px solid transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 15px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 系统监控样式 */
+.monitor-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+}
+
+.monitor-item {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 10px;
+    border: 2px solid #e9ecef;
+}
+
+.monitor-item h3 {
+    color: #2c3e50;
+    font-size: 1.1em;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+/* 进度条样式 */
+.progress-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.progress-bar {
+    flex: 1;
+    height: 20px;
+    background: #ecf0f1;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #27ae60, #2ecc71);
+    transition: width 0.3s ease;
+    border-radius: 10px;
+}
+
+.progress-fill.warning {
+    background: linear-gradient(90deg, #f39c12, #f1c40f);
+}
+
+.progress-fill.danger {
+    background: linear-gradient(90deg, #e74c3c, #ec7063);
+}
+
+.progress-text {
+    font-weight: 700;
+    color: #2c3e50;
+    min-width: 40px;
+    text-align: right;
+    font-family: 'Courier New', monospace;
+}
+
+/* 内存详情 */
+.memory-details {
+    margin-top: 8px;
+    font-size: 0.9em;
+    color: #7f8c8d;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+}
+
+/* 电压显示 */
+.voltage-display {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.voltage-value {
+    font-size: 2em;
+    font-weight: 700;
+    color: #27ae60;
+    font-family: 'Courier New', monospace;
+}
+
+.voltage-unit {
+    font-size: 1.2em;
+    color: #7f8c8d;
+    margin-left: 5px;
+}
+
+.voltage-status {
+    text-align: center;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-weight: 600;
+    background: #27ae60;
+    color: white;
+    font-size: 0.9em;
+}
+
+.voltage-status.warning {
+    background: #f39c12;
+}
+
+.voltage-status.danger {
+    background: #e74c3c;
+}
+
+/* 位置显示 */
+.position-display {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.position-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.position-label {
+    font-weight: 600;
+    color: #555;
+}
+
+.position-value {
+    font-weight: 700;
+    color: #2c3e50;
+    font-family: 'Courier New', monospace;
+}
+
+.position-unit {
+    color: #7f8c8d;
+    font-size: 0.9em;
+}
+
+/* 消息提示样式 */
+.message-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    max-width: 400px;
+}
+
+.message {
+    background: white;
+    padding: 15px 20px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    border-left: 4px solid #3498db;
+    animation: slideIn 0.3s ease;
+}
+
+.message.success {
+    border-left-color: #27ae60;
+}
+
+.message.error {
+    border-left-color: #e74c3c;
+}
+
+.message.warning {
+    border-left-color: #f39c12;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+    main {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .monitor-panel {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+    
+    main {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    header h1 {
+        font-size: 2em;
+    }
+    
+    .status-bar {
+        gap: 15px;
+    }
+    
+    .button-group {
+        gap: 8px;
+    }
+    
+    .btn {
+        padding: 10px 15px;
+        font-size: 0.9em;
+    }
+    
+    .monitor-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .status-bar {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .video-stats {
+        flex-direction: column;
+        gap: 5px;
+        text-align: center;
+    }
+    
+    .key-row {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}

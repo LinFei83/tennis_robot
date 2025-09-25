@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>网球机器人控制台</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='lib/socket.io.min.js') }}"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>网球机器人控制台</h1>
+            <div class="status-bar">
+                <div class="status-item">
+                    <span class="status-label">机器人:</span>
+                    <span id="robot-status" class="status-value offline">离线</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">视觉系统:</span>
+                    <span id="vision-status" class="status-value offline">离线</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">时间:</span>
+                    <span id="current-time" class="status-value">--:--:--</span>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <!-- 控制面板 -->
+            <section class="control-panel">
+                <div class="panel-header">
+                    <h2>控制面板</h2>
+                </div>
+                
+                <!-- 系统控制 -->
+                <div class="control-group">
+                    <h3>系统控制</h3>
+                    <div class="button-group">
+                        <button id="start-robot" class="btn btn-success">启动机器人</button>
+                        <button id="stop-robot" class="btn btn-danger">停止机器人</button>
+                        <button id="start-vision" class="btn btn-primary">启动视觉</button>
+                        <button id="stop-vision" class="btn btn-warning">停止视觉</button>
+                    </div>
+                </div>
+
+                <!-- 键盘控制说明 -->
+                <div class="control-group">
+                    <h3>键盘控制</h3>
+                    <div class="keyboard-help">
+                        <div class="key-row">
+                            <div class="key">W</div>
+                            <span>前进</span>
+                        </div>
+                        <div class="key-row">
+                            <div class="key">A</div>
+                            <span>左转</span>
+                            <div class="key">S</div>
+                            <span>后退</span>
+                            <div class="key">D</div>
+                            <span>右转</span>
+                        </div>
+                        <div class="key-row">
+                            <div class="key">空格</div>
+                            <span>停止</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 当前速度显示 -->
+                <div class="control-group">
+                    <h3>当前速度</h3>
+                    <div class="velocity-display">
+                        <div class="velocity-item">
+                            <span class="velocity-label">线速度X:</span>
+                            <span id="velocity-x" class="velocity-value">0.00</span>
+                            <span class="velocity-unit">m/s</span>
+                        </div>
+                        <div class="velocity-item">
+                            <span class="velocity-label">线速度Y:</span>
+                            <span id="velocity-y" class="velocity-value">0.00</span>
+                            <span class="velocity-unit">m/s</span>
+                        </div>
+                        <div class="velocity-item">
+                            <span class="velocity-label">角速度Z:</span>
+                            <span id="velocity-z" class="velocity-value">0.00</span>
+                            <span class="velocity-unit">rad/s</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 视频显示区域 -->
+            <section class="video-panel">
+                <div class="panel-header">
+                    <h2>摄像头视图</h2>
+                    <div class="video-stats">
+                        <span id="detection-count">检测: 0</span>
+                        <span id="fps-display">FPS: 0.0</span>
+                        <span id="detection-time">耗时: 0ms</span>
+                    </div>
+                </div>
+                <div class="video-container">
+                    <img id="video-stream" src="/video_feed" alt="摄像头视频流">
+                    <div class="video-overlay" id="video-overlay">
+                        <div class="loading-spinner">
+                            <div class="spinner"></div>
+                            <p>等待视频流...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 系统监控 -->
+            <section class="monitor-panel">
+                <div class="panel-header">
+                    <h2>系统监控</h2>
+                </div>
+                
+                <div class="monitor-grid">
+                    <!-- CPU使用率 -->
+                    <div class="monitor-item">
+                        <h3>CPU使用率</h3>
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <div id="cpu-progress" class="progress-fill" style="width: 0%"></div>
+                            </div>
+                            <span id="cpu-percent" class="progress-text">0%</span>
+                        </div>
+                    </div>
+
+                    <!-- 内存使用率 -->
+                    <div class="monitor-item">
+                        <h3>内存使用率</h3>
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <div id="memory-progress" class="progress-fill" style="width: 0%"></div>
+                            </div>
+                            <span id="memory-percent" class="progress-text">0%</span>
+                        </div>
+                        <div class="memory-details">
+                            <span id="memory-used">0.0</span> GB / <span id="memory-total">0.0</span> GB
+                        </div>
+                    </div>
+
+                    <!-- 电池电压 -->
+                    <div class="monitor-item">
+                        <h3>电池电压</h3>
+                        <div class="voltage-display">
+                            <span id="battery-voltage" class="voltage-value">0.00</span>
+                            <span class="voltage-unit">V</span>
+                        </div>
+                        <div id="voltage-status" class="voltage-status">正常</div>
+                    </div>
+
+                    <!-- 机器人状态 -->
+                    <div class="monitor-item">
+                        <h3>机器人位置</h3>
+                        <div class="position-display">
+                            <div class="position-item">
+                                <span class="position-label">X:</span>
+                                <span id="position-x" class="position-value">0.00</span>
+                                <span class="position-unit">m</span>
+                            </div>
+                            <div class="position-item">
+                                <span class="position-label">Y:</span>
+                                <span id="position-y" class="position-value">0.00</span>
+                                <span class="position-unit">m</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- 消息提示区域 -->
+        <div id="message-container" class="message-container"></div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

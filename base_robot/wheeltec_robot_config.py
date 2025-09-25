@@ -14,7 +14,7 @@ class WheelTecRobotConfig:
     """WheelTec机器人配置类"""
     
     # 串口通信配置
-    usart_port_name: str = "/dev/wheeltec_controller"
+    usart_port_name: str = "/dev/base_robot"
     serial_baud_rate: int = 115200
     
 

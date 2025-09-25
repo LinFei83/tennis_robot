@@ -13,7 +13,7 @@ from typing import Dict, Optional, Tuple, List
 from dataclasses import dataclass, field
 import serial
 
-from wheeltec_robot_config import WheelTecRobotConfig, CallbackConfig, Constants
+from .wheeltec_robot_config import WheelTecRobotConfig, CallbackConfig, Constants
 
 
 @dataclass
