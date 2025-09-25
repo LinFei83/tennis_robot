@@ -66,6 +66,27 @@
         this.socket.on('error', (data) => {
             this.handleEvent('error', data);
         });
+        
+        // 拾取模式相关事件
+        this.socket.on('pickup_mode_update', (data) => {
+            console.log('收到拾取模式更新事件:', data);
+            this.handleEvent('pickup_mode_update', data);
+        });
+        
+        this.socket.on('ball_tracking_update', (data) => {
+            console.log('收到球跟踪更新事件:', data);
+            this.handleEvent('ball_tracking_update', data);
+        });
+        
+        this.socket.on('ball_centered', (data) => {
+            console.log('收到球对准中心事件:', data);
+            this.handleEvent('ball_centered', data);
+        });
+        
+        this.socket.on('no_ball_detected', (data) => {
+            console.log('收到无球检测事件:', data);
+            this.handleEvent('no_ball_detected', data);
+        });
     }
     
     // 事件处理器

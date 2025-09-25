@@ -75,6 +75,11 @@ header h1 {
     color: white;
 }
 
+.status-value.warning {
+    background: #f39c12;
+    color: white;
+}
+
 /* 主要内容区域 */
 main {
     display: grid;

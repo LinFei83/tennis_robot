@@ -28,6 +28,7 @@ class VisionProcessor:
         """
         self.socketio = socketio
         self.model_path = model_path
+        self.ball_tracker = None  # 将在主控制器中设置
         
         # 视觉相关
         self.detector = None
@@ -206,6 +207,14 @@ class VisionProcessor:
                     self.current_frame = annotated_frame
                     self.detection_boxes = boxes
                     self.detection_scores = scores
+                    
+                    # 如果有球跟踪器，处理检测结果
+                    if self.ball_tracker:
+                        try:
+                            self.ball_tracker.process_detections(boxes, scores, frame.shape)
+                        except Exception as tracker_error:
+                            print(f"球跟踪处理错误: {tracker_error}")
+                            # 继续处理，不中断视频流
                     
                     # 更新性能统计
                     self.perf_monitor.update_frame_count()

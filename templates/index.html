@@ -40,6 +40,27 @@
                     <div class="button-group">
                         <button id="toggle-robot" class="btn btn-success">启动机器人</button>
                         <button id="toggle-vision" class="btn btn-primary">启动视觉</button>
+                        <button id="toggle-pickup" class="btn btn-secondary">开启拾取</button>
+                    </div>
+                </div>
+
+                <!-- 拾取模式状态 -->
+                <div class="control-group" id="pickup-status-group" style="display: none;">
+                    <h3>拾取模式状态</h3>
+                    <div class="pickup-status">
+                        <div class="status-item">
+                            <span class="status-label">拾取模式:</span>
+                            <span id="pickup-mode-status" class="status-value offline">关闭</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">跟踪状态:</span>
+                            <span id="tracking-status" class="status-value offline">未激活</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">目标距离:</span>
+                            <span id="target-distance" class="status-value">--</span>
+                            <span class="status-unit">px</span>
+                        </div>
                     </div>
                 </div>
 
@@ -183,6 +204,7 @@
     <script src="{{ url_for('static', filename='js/modules/SocketManager.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modules/RobotControl.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modules/VisionControl.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/PickupControl.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modules/UIManager.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modules/KeyboardController.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>

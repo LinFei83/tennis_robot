@@ -20,7 +20,7 @@ class RobotController {
             this.setupEventHandlers();
             
             // 初始化UI事件
-            this.uiManager.setupUIEvents(this.robotControl, this.visionControl);
+            this.uiManager.setupUIEvents(this.robotControl, this.visionControl, this.pickupControl);
         }
         
         // 检查所有模块是否已加载
@@ -29,6 +29,7 @@ class RobotController {
                 'SocketManager',
                 'RobotControl', 
                 'VisionControl',
+                'PickupControl',
                 'UIManager',
                 'KeyboardController',
                 'MessageHandler'
@@ -51,6 +52,9 @@ class RobotController {
             
             // 初始化视觉控制模块
             this.visionControl = new global.TennisRobot.VisionControl(this.messageHandler);
+            
+            // 初始化拾取控制模块
+            this.pickupControl = new global.TennisRobot.PickupControl(this.messageHandler);
             
             // 初始化UI管理器
             this.uiManager = new global.TennisRobot.UIManager();
@@ -111,6 +115,23 @@ class RobotController {
             this.socketManager.setEventHandler('error', (data) => {
                 this.messageHandler.showMessage(data.message, 'error');
             });
+            
+            // 拾取模式相关事件
+            this.socketManager.setEventHandler('pickup_mode_update', (data) => {
+                this.pickupControl.handlePickupModeUpdate(data);
+            });
+            
+            this.socketManager.setEventHandler('ball_tracking_update', (data) => {
+                this.pickupControl.handleBallTrackingUpdate(data);
+            });
+            
+            this.socketManager.setEventHandler('ball_centered', (data) => {
+                this.pickupControl.handleBallCentered(data);
+            });
+            
+            this.socketManager.setEventHandler('no_ball_detected', (data) => {
+                this.pickupControl.handleNoBallDetected(data);
+            });
         }
         
         // 获取模块实例（用于调试或扩展）
@@ -119,6 +140,7 @@ class RobotController {
                 socketManager: this.socketManager,
                 robotControl: this.robotControl,
                 visionControl: this.visionControl,
+                pickupControl: this.pickupControl,
                 uiManager: this.uiManager,
                 keyboardController: this.keyboardController,
                 messageHandler: this.messageHandler

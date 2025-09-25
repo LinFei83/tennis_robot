@@ -186,7 +186,7 @@
     }
     
     // 设置UI事件监听器
-    setupUIEvents(robotControl, visionControl) {
+    setupUIEvents(robotControl, visionControl, pickupControl) {
         // 系统控制按钮
         const robotButton = document.getElementById('toggle-robot');
         const visionButton = document.getElementById('toggle-vision');

@@ -7,5 +7,6 @@ Web模块包
 
 from .robot_controller import RobotController
 from .vision_processor import VisionProcessor
+from .ball_tracker import BallTracker
 
-__all__ = ['RobotController', 'VisionProcessor']
+__all__ = ['RobotController', 'VisionProcessor', 'BallTracker']

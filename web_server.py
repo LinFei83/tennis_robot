@@ -14,7 +14,7 @@ from flask import Flask, render_template, Response, jsonify, request, send_file
 from flask_socketio import SocketIO, emit
 
 # 导入模块化组件
-from web_modules import RobotController, VisionProcessor
+from web_modules import RobotController, VisionProcessor, BallTracker
 
 
 class WebRobotController:
@@ -31,6 +31,10 @@ class WebRobotController:
         # 初始化模块化组件
         self.robot_controller = RobotController(self.socketio)
         self.vision_processor = VisionProcessor(self.socketio)
+        self.ball_tracker = BallTracker(self.robot_controller, self.socketio)
+        
+        # 设置组件间的引用
+        self.vision_processor.ball_tracker = self.ball_tracker
         
         self._setup_routes()
         self._setup_socketio()
@@ -123,6 +127,41 @@ class WebRobotController:
             """获取系统状态"""
             return jsonify(self.system_stats)
         
+        @self.app.route('/api/pickup/toggle', methods=['POST'])
+        def toggle_pickup_mode():
+            """切换拾取模式"""
+            result = self.ball_tracker.toggle_pickup_mode()
+            return jsonify(result)
+        
+        @self.app.route('/api/pickup/status')
+        def get_pickup_status():
+            """获取拾取模式状态"""
+            result = self.ball_tracker.get_pickup_status()
+            return jsonify(result)
+        
+        @self.app.route('/api/pickup/parameters', methods=['GET', 'POST'])
+        def handle_pickup_parameters():
+            """处理拾取模式参数"""
+            if request.method == 'GET':
+                params = self.ball_tracker.get_current_parameters()
+                return jsonify({'status': 'success', 'parameters': params})
+            else:
+                try:
+                    data = request.get_json()
+                    if not data:
+                        return jsonify({'status': 'error', 'message': '无效的JSON数据'})
+                    
+                    result = self.ball_tracker.update_parameters(data)
+                    return jsonify(result)
+                except Exception as e:
+                    return jsonify({'status': 'error', 'message': str(e)})
+        
+        @self.app.route('/api/pickup/reset_stats', methods=['POST'])
+        def reset_pickup_stats():
+            """重置拾取统计信息"""
+            result = self.ball_tracker.reset_statistics()
+            return jsonify(result)
+        
         @self.app.route('/api/vision/capture_original', methods=['POST'])
         def capture_original():
             """截取原始图像"""
@@ -210,6 +249,7 @@ class WebRobotController:
         try:
             self.robot_controller.cleanup()
             self.vision_processor.cleanup()
+            # BallTracker不需要特殊清理，它会随着其他组件停止而停止
             print("资源清理完成")
         except Exception as e:
             print(f"资源清理错误: {e}")
