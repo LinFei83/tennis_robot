@@ -57,7 +57,7 @@ def example_basic_usage():
     
     # 创建配置
     config = WheelTecRobotConfig(
-        usart_port_name="COM12",
+        usart_port_name="/dev/stm32_base",
         serial_baud_rate=115200,
         odom_x_scale=1.0,
         odom_y_scale=1.0

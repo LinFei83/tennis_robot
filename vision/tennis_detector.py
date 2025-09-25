@@ -31,24 +31,42 @@ class TennisDetector:
         
     def _load_model(self):
         """加载TensorFlow Lite模型并获取输入输出信息"""
-        self.interpreter = tflite.Interpreter(model_path=self.model_path)
-        self.interpreter.allocate_tensors()
-        
-        # 获取输入输出详情
-        self.input_details = self.interpreter.get_input_details()
-        self.output_details = self.interpreter.get_output_details()
-        
-        # 获取输入参数
-        self.input_height = self.input_details[0]['shape'][1]
-        self.input_width = self.input_details[0]['shape'][2]
-        self.input_dtype = self.input_details[0]['dtype']
-        
-        # 获取量化参数
-        self.input_scale = self.input_details[0].get('quantization_parameters', {}).get('scales', [1.0])[0]
-        self.input_zero_point = self.input_details[0].get('quantization_parameters', {}).get('zero_points', [0])[0]
-        self.output_scale = self.output_details[0].get('quantization_parameters', {}).get('scales', [1.0])[0]
-        self.output_zero_point = self.output_details[0].get('quantization_parameters', {}).get('zero_points', [0])[0]
-        self.output_dtype = self.output_details[0]['dtype']
+        try:
+            self.interpreter = tflite.Interpreter(model_path=self.model_path)
+            self.interpreter.allocate_tensors()
+            
+            # 获取输入输出详情
+            self.input_details = self.interpreter.get_input_details()
+            self.output_details = self.interpreter.get_output_details()
+            
+            
+            # 获取输入参数
+            self.input_height = self.input_details[0]['shape'][1]
+            self.input_width = self.input_details[0]['shape'][2]
+            self.input_dtype = self.input_details[0]['dtype']
+            
+            # 获取量化参数 - 处理float32模型没有量化参数的情况
+            input_quant_params = self.input_details[0].get('quantization_parameters', {})
+            output_quant_params = self.output_details[0].get('quantization_parameters', {})
+            
+            # 安全获取量化参数
+            input_scales = input_quant_params.get('scales', [1.0])
+            input_zero_points = input_quant_params.get('zero_points', [0])
+            output_scales = output_quant_params.get('scales', [1.0])
+            output_zero_points = output_quant_params.get('zero_points', [0])
+            
+            self.input_scale = input_scales[0] if len(input_scales) > 0 else 1.0
+            self.input_zero_point = input_zero_points[0] if len(input_zero_points) > 0 else 0
+            self.output_scale = output_scales[0] if len(output_scales) > 0 else 1.0
+            self.output_zero_point = output_zero_points[0] if len(output_zero_points) > 0 else 0
+            self.output_dtype = self.output_details[0]['dtype']
+            
+            
+        except Exception as e:
+            print(f"模型加载失败: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
         
     def _print_model_info(self):
         """打印模型信息"""
@@ -101,11 +119,21 @@ class TennisDetector:
             boxes: 检测框列表 [(x1, y1, x2, y2), ...]
             scores: 置信度列表
         """
-        output = output[0].T
-        
-        # 解析输出
-        boxes_xywh = output[..., :4]
-        scores = np.max(output[..., 4:], axis=1)
+        try:
+            if output.shape[0] == 0:
+                print("警告: 模型输出为空")
+                return [], []
+                
+            output = output[0].T
+            
+            # 解析输出
+            boxes_xywh = output[..., :4]
+            scores = np.max(output[..., 4:], axis=1)
+            
+            
+        except Exception as e:
+            print(f"后处理解析输出时出错: {e}")
+            return [], []
         
         # NMS去重
         indices = cv2.dnn.NMSBoxes(
@@ -118,8 +146,15 @@ class TennisDetector:
         filtered_boxes = []
         filtered_scores = []
         
-        if len(indices) > 0:
-            for i in indices.flatten():
+        # 检查indices是否为空或格式问题
+        if len(indices) > 0 and indices is not None:
+            # 处理不同版本OpenCV返回格式的差异
+            if isinstance(indices, tuple):
+                indices_list = indices
+            else:
+                indices_list = indices.flatten() if hasattr(indices, 'flatten') else indices
+                
+            for i in indices_list:
                 if scores[i] >= self.confidence_threshold:
                     x_center, y_center, width, height = boxes_xywh[i]
                     
@@ -145,23 +180,30 @@ class TennisDetector:
             boxes: 检测框列表
             scores: 置信度列表
         """
-        original_height, original_width = image.shape[:2]
-        
-        # 预处理
-        input_image = self.preprocess_image(image)
-        
-        # 推理
-        self.interpreter.set_tensor(self.input_details[0]['index'], input_image)
-        self.interpreter.invoke()
-        
-        # 获取输出并反量化
-        output = self.interpreter.get_tensor(self.output_details[0]['index'])
-        if self.output_dtype == np.int8:
-            output = output.astype(np.float32)
-            output = (output - self.output_zero_point) * self.output_scale
-        
-        # 后处理
-        return self.postprocess_output(output, original_width, original_height)
+        try:
+            original_height, original_width = image.shape[:2]
+            # 预处理
+            input_image = self.preprocess_image(image)
+            
+            # 推理
+            self.interpreter.set_tensor(self.input_details[0]['index'], input_image)
+            self.interpreter.invoke()
+            
+            # 获取输出并反量化
+            output = self.interpreter.get_tensor(self.output_details[0]['index'])
+            
+            if self.output_dtype == np.int8:
+                output = output.astype(np.float32)
+                output = (output - self.output_zero_point) * self.output_scale
+            
+            # 后处理
+            return self.postprocess_output(output, original_width, original_height)
+            
+        except Exception as e:
+            print(f"检测过程中出错: {e}")
+            import traceback
+            traceback.print_exc()
+            return [], []
     
     def draw_detections(self, image, boxes, scores):
         """

@@ -40,7 +40,9 @@ def create_info_overlay(frame, fps, detection_time, num_detections, skip_frames)
 def main():
     """主函数"""
     # 配置参数
-    MODEL_PATH = "vision/model/model_int8_v8.tflite"
+    # MODEL_PATH = "vision/model/model_float32_v8.tflite"
+    # MODEL_PATH = "vision/model/model_int8_v8.tflite"
+    MODEL_PATH = "vision/model/model_float32_myv8.tflite"
     
     try:
         # 初始化配置
