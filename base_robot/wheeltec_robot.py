@@ -454,9 +454,15 @@ class WheelTecRobot:
             self._log_error("机器人已在运行中")
             return
         
+        # 检查串口状态，如果未打开则重新初始化
         if not self.serial_port or not self.serial_port.is_open:
-            self._log_error("串口未打开，无法启动")
-            return
+            self._log_info("串口未打开，正在重新初始化...")
+            self._init_serial()
+            
+            # 再次检查串口是否成功打开
+            if not self.serial_port or not self.serial_port.is_open:
+                self._log_error("串口初始化失败，无法启动")
+                return
         
         self.running = True
         self.control_thread = threading.Thread(target=self._control_loop, daemon=True)

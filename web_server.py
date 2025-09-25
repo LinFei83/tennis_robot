@@ -183,29 +183,49 @@ class WebRobotController:
         def start_robot():
             """启动机器人"""
             try:
-                if not self.robot_running and self.robot:
-                    self.robot.start()
-                    self.robot_running = True
-                    return jsonify({'status': 'success', 'message': '机器人已启动'})
-                else:
-                    return jsonify({'status': 'error', 'message': '机器人已在运行或未初始化'})
+                if self.robot_running:
+                    return jsonify({'status': 'error', 'message': '机器人已在运行中'})
+                
+                if not self.robot:
+                    return jsonify({'status': 'error', 'message': '机器人未初始化'})
+                
+                # 启动机器人（内部会自动处理串口重连）
+                self.robot.start()
+                self.robot_running = True
+                return jsonify({'status': 'success', 'message': '机器人已启动'})
+                
             except Exception as e:
-                return jsonify({'status': 'error', 'message': str(e)})
+                self.robot_running = False  # 确保状态一致
+                return jsonify({'status': 'error', 'message': f'机器人启动失败: {str(e)}'})
         
         @self.app.route('/api/robot/stop', methods=['POST'])
         def stop_robot():
             """停止机器人"""
             try:
-                if self.robot_running and self.robot:
-                    self.robot.set_velocity(0.0, 0.0, 0.0)
-                    self.robot.stop()
-                    self.robot_running = False
-                    self.current_velocity = {'x': 0.0, 'y': 0.0, 'z': 0.0}
-                    return jsonify({'status': 'success', 'message': '机器人已停止'})
-                else:
+                if not self.robot_running:
                     return jsonify({'status': 'error', 'message': '机器人未运行'})
+                
+                if not self.robot:
+                    self.robot_running = False
+                    return jsonify({'status': 'error', 'message': '机器人未初始化'})
+                
+                # 先停止运动
+                try:
+                    self.robot.set_velocity(0.0, 0.0, 0.0)
+                except Exception as vel_e:
+                    print(f"停止运动失败: {vel_e}")
+                
+                # 停止机器人控制
+                self.robot.stop()
+                self.robot_running = False
+                self.current_velocity = {'x': 0.0, 'y': 0.0, 'z': 0.0}
+                
+                return jsonify({'status': 'success', 'message': '机器人已停止'})
+                
             except Exception as e:
-                return jsonify({'status': 'error', 'message': str(e)})
+                self.robot_running = False  # 确保状态一致
+                self.current_velocity = {'x': 0.0, 'y': 0.0, 'z': 0.0}
+                return jsonify({'status': 'error', 'message': f'机器人停止失败: {str(e)}'})
         
         @self.app.route('/api/robot/velocity', methods=['POST'])
         def set_velocity():
