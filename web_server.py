@@ -144,7 +144,15 @@ class WebRobotController:
                 result = self.robot_controller.handle_control_command(command)
                 
                 if result['status'] == 'success':
-                    emit('velocity_update', result['velocity'])
+                    # 发送速度更新，包含速度倍数信息
+                    velocity_data = result['velocity'].copy()
+                    if 'speed_multiplier' in result:
+                        velocity_data['speed_multiplier'] = result['speed_multiplier']
+                    emit('velocity_update', velocity_data)
+                    
+                    # 如果有消息（如速度调节反馈），也发送消息
+                    if 'message' in result:
+                        emit('info', {'message': result['message']})
                 else:
                     emit('error', {'message': result['message']})
             except Exception as e:

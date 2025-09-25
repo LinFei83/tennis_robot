@@ -38,33 +38,26 @@
                 <div class="control-group">
                     <h3>系统控制</h3>
                     <div class="button-group">
-                        <button id="start-robot" class="btn btn-success">启动机器人</button>
-                        <button id="stop-robot" class="btn btn-danger">停止机器人</button>
-                        <button id="start-vision" class="btn btn-primary">启动视觉</button>
-                        <button id="stop-vision" class="btn btn-warning">停止视觉</button>
+                        <button id="toggle-robot" class="btn btn-success">启动机器人</button>
+                        <button id="toggle-vision" class="btn btn-primary">启动视觉</button>
                     </div>
                 </div>
 
                 <!-- 键盘控制说明 -->
                 <div class="control-group">
-                    <h3>键盘控制</h3>
-                    <div class="keyboard-help">
-                        <div class="key-row">
-                            <div class="key">W</div>
-                            <span>前进</span>
-                        </div>
-                        <div class="key-row">
-                            <div class="key">A</div>
-                            <span>左转</span>
-                            <div class="key">S</div>
-                            <span>后退</span>
-                            <div class="key">D</div>
-                            <span>右转</span>
-                        </div>
-                        <div class="key-row">
-                            <div class="key">空格</div>
-                            <span>停止</span>
-                        </div>
+                    <h3 class="collapsible-header" onclick="toggleKeyboardHelp()">
+                        键盘控制 <span id="keyboard-toggle" class="toggle-icon">▼</span>
+                    </h3>
+                    <div id="keyboard-help-content" class="keyboard-help-text collapsed">
+                        <p><strong>Q</strong> - 逆时针旋转</p>
+                        <p><strong>W</strong> - 前进</p>
+                        <p><strong>E</strong> - 顺时针旋转</p>
+                        <p><strong>A</strong> - 左平移</p>
+                        <p><strong>S</strong> - 后退</p>
+                        <p><strong>D</strong> - 右平移</p>
+                        <p><strong>C</strong> - 加速</p>
+                        <p><strong>Z</strong> - 减速</p>
+                        <p><strong>空格</strong> - 停止</p>
                     </div>
                 </div>
 
@@ -72,6 +65,11 @@
                 <div class="control-group">
                     <h3>当前速度</h3>
                     <div class="velocity-display">
+                        <div class="velocity-item">
+                            <span class="velocity-label">速度级别:</span>
+                            <span id="speed-multiplier" class="velocity-value">1.0</span>
+                            <span class="velocity-unit">x</span>
+                        </div>
                         <div class="velocity-item">
                             <span class="velocity-label">线速度X:</span>
                             <span id="velocity-x" class="velocity-value">0.00</span>

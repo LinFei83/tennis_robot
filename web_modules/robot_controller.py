@@ -30,6 +30,14 @@ class RobotController:
         # 当前速度状态
         self.current_velocity = {'x': 0.0, 'y': 0.0, 'z': 0.0}
         
+        # 速度设置
+        self.base_speed_linear = 0.3  # 基础线速度 m/s
+        self.base_speed_angular = 0.3  # 基础角速度 rad/s
+        self.speed_multiplier = 1.0  # 速度倍数
+        self.min_speed_multiplier = 0.1  # 最小速度倍数
+        self.max_speed_multiplier = 3.0  # 最大速度倍数
+        self.speed_step = 0.1  # 速度调节步长
+        
         # 初始化机器人
         self._init_robot()
     
@@ -126,9 +134,9 @@ class RobotController:
             if not (self.robot_running and self.robot):
                 return {'status': 'error', 'message': '机器人未运行'}
             
-            # 预定义的速度值
-            speed_linear = 0.2  # m/s
-            speed_angular = 0.3  # rad/s
+            # 计算当前实际速度值
+            speed_linear = self.base_speed_linear * self.speed_multiplier
+            speed_angular = self.base_speed_angular * self.speed_multiplier
             
             if command == 'forward':
                 self.robot.set_velocity(speed_linear, 0.0, 0.0)
@@ -136,25 +144,70 @@ class RobotController:
             elif command == 'backward':
                 self.robot.set_velocity(-speed_linear, 0.0, 0.0)
                 self.current_velocity = {'x': -speed_linear, 'y': 0.0, 'z': 0.0}
-            elif command == 'left':
+            elif command == 'left_translate':  # A键：左平移
+                self.robot.set_velocity(0.0, speed_linear, 0.0)
+                self.current_velocity = {'x': 0.0, 'y': speed_linear, 'z': 0.0}
+            elif command == 'right_translate':  # D键：右平移
+                self.robot.set_velocity(0.0, -speed_linear, 0.0)
+                self.current_velocity = {'x': 0.0, 'y': -speed_linear, 'z': 0.0}
+            elif command == 'rotate_left':  # Q键：逆时针旋转
                 self.robot.set_velocity(0.0, 0.0, speed_angular)
                 self.current_velocity = {'x': 0.0, 'y': 0.0, 'z': speed_angular}
-            elif command == 'right':
+            elif command == 'rotate_right':  # E键：顺时针旋转
                 self.robot.set_velocity(0.0, 0.0, -speed_angular)
                 self.current_velocity = {'x': 0.0, 'y': 0.0, 'z': -speed_angular}
+            elif command == 'speed_up':  # C键：加速
+                return self.increase_speed()
+            elif command == 'speed_down':  # Z键：减速
+                return self.decrease_speed()
             elif command == 'stop':
                 self.robot.set_velocity(0.0, 0.0, 0.0)
                 self.current_velocity = {'x': 0.0, 'y': 0.0, 'z': 0.0}
             
-            return {'status': 'success', 'velocity': self.current_velocity}
+            return {'status': 'success', 'velocity': self.current_velocity, 'speed_multiplier': self.speed_multiplier}
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
+    
+    def increase_speed(self):
+        """增加速度"""
+        old_multiplier = self.speed_multiplier
+        self.speed_multiplier = min(self.speed_multiplier + self.speed_step, self.max_speed_multiplier)
+        
+        if self.speed_multiplier != old_multiplier:
+            message = f'速度增加到 {self.speed_multiplier:.1f}x'
+        else:
+            message = f'已达到最大速度 {self.max_speed_multiplier:.1f}x'
+        
+        return {
+            'status': 'success',
+            'message': message,
+            'speed_multiplier': self.speed_multiplier,
+            'velocity': self.current_velocity
+        }
+    
+    def decrease_speed(self):
+        """减少速度"""
+        old_multiplier = self.speed_multiplier
+        self.speed_multiplier = max(self.speed_multiplier - self.speed_step, self.min_speed_multiplier)
+        
+        if self.speed_multiplier != old_multiplier:
+            message = f'速度减少到 {self.speed_multiplier:.1f}x'
+        else:
+            message = f'已达到最小速度 {self.min_speed_multiplier:.1f}x'
+        
+        return {
+            'status': 'success',
+            'message': message,
+            'speed_multiplier': self.speed_multiplier,
+            'velocity': self.current_velocity
+        }
     
     def get_status(self):
         """获取机器人状态"""
         return {
             'running': self.robot_running,
-            'velocity': self.current_velocity
+            'velocity': self.current_velocity,
+            'speed_multiplier': self.speed_multiplier
         }
     
     def cleanup(self):

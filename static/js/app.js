@@ -7,6 +7,7 @@ class RobotController {
         this.robotRunning = false;
         this.visionRunning = false;
         this.keyPressed = new Set();
+        this.speedMultiplier = 1.0;
         
         this.init();
     }
@@ -43,6 +44,10 @@ class RobotController {
         
         this.socket.on('velocity_update', (data) => {
             this.updateVelocityDisplay(data);
+            if (data.speed_multiplier !== undefined) {
+                this.speedMultiplier = data.speed_multiplier;
+                this.updateSpeedDisplay();
+            }
         });
         
         this.socket.on('detection_update', (data) => {
@@ -60,25 +65,25 @@ class RobotController {
         this.socket.on('robot_error', (data) => {
             this.showMessage(`机器人错误: ${data.message}`, 'error');
         });
+        
+        this.socket.on('info', (data) => {
+            this.showMessage(data.message, 'info');
+        });
+        
+        this.socket.on('error', (data) => {
+            this.showMessage(data.message, 'error');
+        });
     }
     
     // UI事件设置
     setupUIEvents() {
         // 系统控制按钮
-        document.getElementById('start-robot').addEventListener('click', () => {
-            this.startRobot();
+        document.getElementById('toggle-robot').addEventListener('click', () => {
+            this.toggleRobot();
         });
         
-        document.getElementById('stop-robot').addEventListener('click', () => {
-            this.stopRobot();
-        });
-        
-        document.getElementById('start-vision').addEventListener('click', () => {
-            this.startVision();
-        });
-        
-        document.getElementById('stop-vision').addEventListener('click', () => {
-            this.stopVision();
+        document.getElementById('toggle-vision').addEventListener('click', () => {
+            this.toggleVision();
         });
         
         // 视频流加载事件
@@ -125,10 +130,22 @@ class RobotController {
                     this.sendRobotControl('backward');
                     break;
                 case 'KeyA':
-                    this.sendRobotControl('left');
+                    this.sendRobotControl('left_translate');
                     break;
                 case 'KeyD':
-                    this.sendRobotControl('right');
+                    this.sendRobotControl('right_translate');
+                    break;
+                case 'KeyQ':
+                    this.sendRobotControl('rotate_left');
+                    break;
+                case 'KeyE':
+                    this.sendRobotControl('rotate_right');
+                    break;
+                case 'KeyC':
+                    this.sendRobotControl('speed_up');
+                    break;
+                case 'KeyZ':
+                    this.sendRobotControl('speed_down');
                     break;
                 case 'Space':
                     event.preventDefault();
@@ -143,7 +160,7 @@ class RobotController {
             if (!this.robotRunning) return;
             
             // 当按键释放时停止机器人
-            if (['KeyW', 'KeyS', 'KeyA', 'KeyD'].includes(event.code)) {
+            if (['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyQ', 'KeyE'].includes(event.code)) {
                 this.sendRobotControl('stop');
             }
         });
@@ -165,6 +182,22 @@ class RobotController {
     }
     
     // 系统控制方法
+    async toggleRobot() {
+        if (this.robotRunning) {
+            await this.stopRobot();
+        } else {
+            await this.startRobot();
+        }
+    }
+
+    async toggleVision() {
+        if (this.visionRunning) {
+            await this.stopVision();
+        } else {
+            await this.startVision();
+        }
+    }
+
     async startRobot() {
         try {
             const response = await fetch('/api/robot/start', {
@@ -267,23 +300,35 @@ class RobotController {
     
     updateRobotStatus(running) {
         const statusElement = document.getElementById('robot-status');
+        const buttonElement = document.getElementById('toggle-robot');
+        
         if (running) {
             statusElement.textContent = '在线';
             statusElement.className = 'status-value online';
+            buttonElement.textContent = '停止机器人';
+            buttonElement.className = 'btn btn-danger';
         } else {
             statusElement.textContent = '离线';
             statusElement.className = 'status-value offline';
+            buttonElement.textContent = '启动机器人';
+            buttonElement.className = 'btn btn-success';
         }
     }
     
     updateVisionStatus(running) {
         const statusElement = document.getElementById('vision-status');
+        const buttonElement = document.getElementById('toggle-vision');
+        
         if (running) {
             statusElement.textContent = '在线';
             statusElement.className = 'status-value online';
+            buttonElement.textContent = '停止视觉';
+            buttonElement.className = 'btn btn-warning';
         } else {
             statusElement.textContent = '离线';
             statusElement.className = 'status-value offline';
+            buttonElement.textContent = '启动视觉';
+            buttonElement.className = 'btn btn-primary';
         }
     }
     
@@ -328,6 +373,13 @@ class RobotController {
         document.getElementById('velocity-x').textContent = data.x.toFixed(2);
         document.getElementById('velocity-y').textContent = data.y.toFixed(2);
         document.getElementById('velocity-z').textContent = data.z.toFixed(2);
+    }
+    
+    updateSpeedDisplay() {
+        const speedElement = document.getElementById('speed-multiplier');
+        if (speedElement) {
+            speedElement.textContent = this.speedMultiplier.toFixed(1);
+        }
     }
     
     updateDetectionStats(data) {
@@ -403,6 +455,24 @@ class RobotController {
         while (container.children.length > 5) {
             container.removeChild(container.firstChild);
         }
+    }
+}
+
+// 键盘帮助折叠/展开功能
+function toggleKeyboardHelp() {
+    const content = document.getElementById('keyboard-help-content');
+    const toggleIcon = document.getElementById('keyboard-toggle');
+    
+    if (content.classList.contains('collapsed')) {
+        // 展开
+        content.classList.remove('collapsed');
+        toggleIcon.textContent = '▲';
+        toggleIcon.style.transform = 'rotate(180deg)';
+    } else {
+        // 折叠
+        content.classList.add('collapsed');
+        toggleIcon.textContent = '▼';
+        toggleIcon.style.transform = 'rotate(0deg)';
     }
 }
 

@@ -190,6 +190,59 @@ section {
     border: 2px solid #e9ecef;
 }
 
+/* 折叠功能样式 */
+.collapsible-header {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.3s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.collapsible-header:hover {
+    color: #3498db;
+}
+
+.toggle-icon {
+    font-size: 0.8em;
+    transition: transform 0.3s ease;
+    color: #7f8c8d;
+}
+
+.keyboard-help-text {
+    overflow: hidden;
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+}
+
+.keyboard-help-text.collapsed {
+    max-height: 0;
+    opacity: 0;
+    padding: 0 15px;
+    border: none;
+    background: none;
+}
+
+.keyboard-help-text:not(.collapsed) {
+    max-height: 500px;
+    opacity: 1;
+    padding: 15px;
+}
+
+.keyboard-help-text p {
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.keyboard-help-text p:last-child {
+    margin-bottom: 0;
+}
+
 .key-row {
     display: flex;
     align-items: center;
