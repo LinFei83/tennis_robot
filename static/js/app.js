@@ -151,6 +151,14 @@ class RobotController {
                     event.preventDefault();
                     this.sendRobotControl('stop');
                     break;
+                case 'KeyP':
+                    event.preventDefault();
+                    this.captureOriginalImage();
+                    break;
+                case 'KeyO':
+                    event.preventDefault();
+                    this.captureDetectionImage();
+                    break;
             }
         });
         
@@ -433,6 +441,86 @@ class RobotController {
         
         updateClock();
         setInterval(updateClock, 1000);
+    }
+    
+    // 截图功能
+    async captureOriginalImage() {
+        try {
+            const response = await fetch('/api/vision/capture_original', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            if (response.ok) {
+                // 获取文件名
+                const contentDisposition = response.headers.get('content-disposition');
+                let filename = 'original_image.jpg';
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+                    if (filenameMatch) {
+                        filename = filenameMatch[1];
+                    }
+                }
+                
+                // 下载文件
+                const blob = await response.blob();
+                this.downloadFile(blob, filename);
+                this.showMessage('原始图像截取成功', 'success');
+            } else {
+                const result = await response.json();
+                this.showMessage(`截取失败: ${result.message}`, 'error');
+            }
+        } catch (error) {
+            this.showMessage(`截取原始图像失败: ${error.message}`, 'error');
+        }
+    }
+    
+    async captureDetectionImage() {
+        try {
+            const response = await fetch('/api/vision/capture_detection', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            if (response.ok) {
+                // 获取文件名
+                const contentDisposition = response.headers.get('content-disposition');
+                let filename = 'detection_image.jpg';
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+                    if (filenameMatch) {
+                        filename = filenameMatch[1];
+                    }
+                }
+                
+                // 下载文件
+                const blob = await response.blob();
+                this.downloadFile(blob, filename);
+                this.showMessage('检测画面截取成功', 'success');
+            } else {
+                const result = await response.json();
+                this.showMessage(`截取失败: ${result.message}`, 'error');
+            }
+        } catch (error) {
+            this.showMessage(`截取检测画面失败: ${error.message}`, 'error');
+        }
+    }
+    
+    // 文件下载功能
+    downloadFile(blob, filename) {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
     }
     
     // 消息提示

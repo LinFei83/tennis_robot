@@ -8,8 +8,9 @@
 import time
 import threading
 import psutil
+import io
 from datetime import datetime
-from flask import Flask, render_template, Response, jsonify, request
+from flask import Flask, render_template, Response, jsonify, request, send_file
 from flask_socketio import SocketIO, emit
 
 # 导入模块化组件
@@ -121,6 +122,40 @@ class WebRobotController:
         def get_system_stats():
             """获取系统状态"""
             return jsonify(self.system_stats)
+        
+        @self.app.route('/api/vision/capture_original', methods=['POST'])
+        def capture_original():
+            """截取原始图像"""
+            result = self.vision_processor.capture_original_image()
+            if result['status'] == 'success':
+                # 创建内存中的文件对象
+                img_io = io.BytesIO(result['data'])
+                img_io.seek(0)
+                return send_file(
+                    img_io,
+                    mimetype='image/jpeg',
+                    as_attachment=True,
+                    download_name=result['filename']
+                )
+            else:
+                return jsonify(result), 400
+        
+        @self.app.route('/api/vision/capture_detection', methods=['POST'])
+        def capture_detection():
+            """截取检测画面"""
+            result = self.vision_processor.capture_detection_image()
+            if result['status'] == 'success':
+                # 创建内存中的文件对象
+                img_io = io.BytesIO(result['data'])
+                img_io.seek(0)
+                return send_file(
+                    img_io,
+                    mimetype='image/jpeg',
+                    as_attachment=True,
+                    download_name=result['filename']
+                )
+            else:
+                return jsonify(result), 400
     
     def _setup_socketio(self):
         """设置WebSocket事件"""

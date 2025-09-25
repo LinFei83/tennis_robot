@@ -36,6 +36,7 @@ class VisionProcessor:
         self.perf_monitor = None
         self.vision_running = False
         self.current_frame = None
+        self.original_frame = None  # 保存原始帧
         self.detection_boxes = []
         self.detection_scores = []
         
@@ -118,6 +119,56 @@ class VisionProcessor:
         """获取当前帧"""
         return self.current_frame
     
+    def get_original_frame(self):
+        """获取原始帧（未经过检测处理的）"""
+        return self.original_frame
+    
+    def capture_original_image(self):
+        """截取原始摄像头图像"""
+        try:
+            if self.original_frame is not None:
+                timestamp = int(time.time())
+                filename = f"original_{timestamp}.jpg"
+                # 编码图像为JPEG格式
+                ret, buffer = cv2.imencode('.jpg', self.original_frame, 
+                                         [cv2.IMWRITE_JPEG_QUALITY, 95])
+                if ret:
+                    return {
+                        'status': 'success',
+                        'filename': filename,
+                        'data': buffer.tobytes(),
+                        'message': '原始图像截取成功'
+                    }
+                else:
+                    return {'status': 'error', 'message': '图像编码失败'}
+            else:
+                return {'status': 'error', 'message': '没有可用的原始图像'}
+        except Exception as e:
+            return {'status': 'error', 'message': str(e)}
+    
+    def capture_detection_image(self):
+        """截取检测后的画面"""
+        try:
+            if self.current_frame is not None:
+                timestamp = int(time.time())
+                filename = f"detection_{timestamp}.jpg"
+                # 编码图像为JPEG格式
+                ret, buffer = cv2.imencode('.jpg', self.current_frame, 
+                                         [cv2.IMWRITE_JPEG_QUALITY, 95])
+                if ret:
+                    return {
+                        'status': 'success',
+                        'filename': filename,
+                        'data': buffer.tobytes(),
+                        'message': '检测画面截取成功'
+                    }
+                else:
+                    return {'status': 'error', 'message': '图像编码失败'}
+            else:
+                return {'status': 'error', 'message': '没有可用的检测画面'}
+        except Exception as e:
+            return {'status': 'error', 'message': str(e)}
+    
     def _start_vision_thread(self):
         """启动视觉处理线程"""
         def vision_loop():
@@ -130,6 +181,9 @@ class VisionProcessor:
                     ret, frame = self.camera_manager.get_latest_frame()
                     if not ret or frame is None:
                         continue
+                    
+                    # 保存原始帧
+                    self.original_frame = frame.copy()
                     
                     # 执行检测
                     detection_start = time.time()
