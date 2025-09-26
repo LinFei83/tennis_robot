@@ -256,14 +256,31 @@ class WheelTecRobot:
         
         return checksum
     
-    def _imu_trans(self, data_high: int, data_low: int) -> int:
-        """IMU数据转换"""
+    def _signed_int16_trans(self, data_high: int, data_low: int) -> int:
+        """有符号16位整数数据转换"""
+        # 组合两个字节为16位无符号数
+        unsigned_value = (data_high << 8) | data_low
+        
+        # 转换为有符号数（如果最高位为1，表示负数）
+        if unsigned_value >= 32768:  # 2^15
+            signed_value = unsigned_value - 65536  # 2^16
+        else:
+            signed_value = unsigned_value
+            
+        return signed_value
+    
+    def _unsigned_int16_trans(self, data_high: int, data_low: int) -> int:
+        """无符号16位整数数据转换"""
         return (data_high << 8) | data_low
     
+    def _imu_trans(self, data_high: int, data_low: int) -> int:
+        """IMU数据转换（有符号）"""
+        return self._signed_int16_trans(data_high, data_low)
+    
     def _odom_trans(self, data_high: int, data_low: int) -> float:
-        """里程计数据转换"""
-        transition_16 = (data_high << 8) | data_low
-        return (transition_16 // 1000) + (transition_16 % 1000) * 0.001
+        """里程计数据转换（有符号）"""
+        signed_value = self._signed_int16_trans(data_high, data_low)
+        return (signed_value / 1000.0)
     
     def _get_sensor_data(self) -> bool:
         """获取传感器数据"""
@@ -311,7 +328,6 @@ class WheelTecRobot:
         self.robot_vel.X = self._odom_trans(self.receive_buffer[2], self.receive_buffer[3])
         self.robot_vel.Y = self._odom_trans(self.receive_buffer[4], self.receive_buffer[5])
         self.robot_vel.Z = self._odom_trans(self.receive_buffer[6], self.receive_buffer[7])
-        
         # 解析IMU数据
         self.imu_data.accele_x_data = self._imu_trans(self.receive_buffer[8], self.receive_buffer[9])
         self.imu_data.accele_y_data = self._imu_trans(self.receive_buffer[10], self.receive_buffer[11])
@@ -329,9 +345,9 @@ class WheelTecRobot:
         self.imu_sensor.angular_velocity.Y = self.imu_data.gyros_y_data * Constants.GYROSCOPE_RATIO
         self.imu_sensor.angular_velocity.Z = self.imu_data.gyros_z_data * Constants.GYROSCOPE_RATIO
         
-        # 解析电压数据
-        voltage_raw = (self.receive_buffer[20] << 8) | self.receive_buffer[21]
-        self.power_voltage = (voltage_raw // 1000) + (voltage_raw % 1000) * 0.001
+        # 解析电压数据（使用有符号数解析）
+        voltage_signed = self._signed_int16_trans(self.receive_buffer[20], self.receive_buffer[21])
+        self.power_voltage = voltage_signed / 1000.0
     
     def _update_odometry(self):
         """更新里程计"""

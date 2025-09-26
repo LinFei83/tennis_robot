@@ -39,8 +39,8 @@ class BallTracker:
         # 控制参数
         self.center_tolerance = 30  # 中心区域容差（像素）
         self.min_confidence = 0.6   # 最小置信度
-        self.angular_speed_base = 0.1  # 基础角速度 rad/s
-        self.max_angular_speed = 0.3   # 最大角速度 rad/s
+        self.angular_speed_base = 0.05  # 基础角速度 rad/s
+        self.max_angular_speed = 0.15   # 最大角速度 rad/s
         
         # PID控制参数
         self.kp = 0.003  # 比例系数
