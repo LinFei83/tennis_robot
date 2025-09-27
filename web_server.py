@@ -162,6 +162,18 @@ class WebRobotController:
             result = self.ball_tracker.reset_statistics()
             return jsonify(result)
         
+        @self.app.route('/api/pickup/emergency_stop', methods=['POST'])
+        def emergency_stop():
+            """紧急停止拾取"""
+            result = self.ball_tracker.emergency_stop()
+            return jsonify(result)
+        
+        @self.app.route('/api/pickup/restart', methods=['POST'])
+        def restart_pickup():
+            """重启拾取过程"""
+            result = self.ball_tracker.restart_pickup()
+            return jsonify(result)
+        
         @self.app.route('/api/vision/capture_original', methods=['POST'])
         def capture_original():
             """截取原始图像"""

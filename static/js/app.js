@@ -132,6 +132,19 @@ class RobotController {
             this.socketManager.setEventHandler('no_ball_detected', (data) => {
                 this.pickupControl.handleNoBallDetected(data);
             });
+            
+            // 新的状态机事件处理
+            this.socketManager.setEventHandler('state_change', (data) => {
+                this.pickupControl.handleStateChange(data);
+            });
+            
+            this.socketManager.setEventHandler('pickup_status_update', (data) => {
+                this.pickupControl.handlePickupStatusUpdate(data);
+            });
+            
+            this.socketManager.setEventHandler('emergency_stop', (data) => {
+                this.messageHandler.showMessage(data.message, 'warning');
+            });
         }
         
         // 获取模块实例（用于调试或扩展）

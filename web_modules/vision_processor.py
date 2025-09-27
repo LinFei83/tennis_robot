@@ -18,7 +18,7 @@ from vision.camera_manager import CameraConfig, CameraManager, PerformanceMonito
 class VisionProcessor:
     """视觉处理器"""
     
-    def __init__(self, socketio=None, model_path="vision/model/model_float32_myv8.tflite"):
+    def __init__(self, socketio=None, model_path="vision/model/model_float32_myv8_2.tflite"):
         """
         初始化视觉处理器
         
@@ -51,7 +51,7 @@ class VisionProcessor:
             if not os.path.exists(self.model_path):
                 print(f"警告: 模型文件不存在: {self.model_path}")
                 return
-            
+            print("使用模型:", self.model_path)
             # 初始化检测器
             self.detector = TennisDetector(
                 self.model_path,

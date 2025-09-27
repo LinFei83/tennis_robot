@@ -35,6 +35,9 @@ class BallController:
         self.angular_speed_base = 0.05  # 基础角速度 rad/s
         self.max_angular_speed = 0.15   # 最大角速度 rad/s
         
+        # 前进控制参数
+        self.forward_speed = 0.2  # 前进速度 m/s
+        
         # PID控制参数
         self.kp = 0.003  # 比例系数
         self.ki = 0.0001  # 积分系数
@@ -104,12 +107,13 @@ class BallController:
         
         return valid_balls
     
-    def select_target_ball(self, valid_balls: List[dict]) -> Optional[dict]:
+    def select_target_ball(self, valid_balls: List[dict], selection_mode: str = 'largest') -> Optional[dict]:
         """
-        选择目标球（选择最近的球）
+        选择目标球
         
         Args:
             valid_balls: 有效检测球列表
+            selection_mode: 选择模式 'largest'(最大检测框) 或 'nearest'(最近中心)
             
         Returns:
             目标球信息或None
@@ -117,8 +121,12 @@ class BallController:
         if not valid_balls:
             return None
         
-        # 按到屏幕中心的距离排序，选择最近的
-        target_ball = min(valid_balls, key=lambda ball: ball['distance_to_center'])
+        if selection_mode == 'largest':
+            # 选择检测框最大的球（最近的球）
+            target_ball = max(valid_balls, key=lambda ball: ball['area'])
+        else:  # nearest
+            # 按到屏幕中心的距离排序，选择最近的
+            target_ball = min(valid_balls, key=lambda ball: ball['distance_to_center'])
         
         return target_ball
     
@@ -134,6 +142,7 @@ class BallController:
         """
         distance_to_center = target_ball['distance_to_center']
         return distance_to_center <= self.center_tolerance
+    
     
     def calculate_control_output(self, target_ball: dict) -> dict:
         """
@@ -244,6 +253,82 @@ class BallController:
                 return False
         return False
     
+    def send_forward_command(self, speed: float = None) -> bool:
+        """
+        发送前进控制命令
+        
+        Args:
+            speed: 前进速度，如果为None则使用默认速度
+            
+        Returns:
+            True如果命令发送成功
+        """
+        if speed is None:
+            speed = self.forward_speed
+            
+        if self.robot_controller and hasattr(self.robot_controller, 'robot_running') and self.robot_controller.robot_running:
+            try:
+                result = self.robot_controller.set_velocity(speed, 0.0, 0.0)
+                if result.get('status') != 'success':
+                    print(f"前进命令执行失败: {result.get('message', '未知错误')}")
+                    return False
+                return True
+            except Exception as e:
+                print(f"发送前进命令失败: {e}")
+                return False
+        return False
+    
+    def send_backward_command(self, speed: float = None, duration: float = 1.0) -> bool:
+        """
+        发送后退控制命令
+        
+        Args:
+            speed: 后退速度，如果为None则使用默认速度
+            duration: 后退持续时间（秒）
+            
+        Returns:
+            True如果命令发送成功
+        """
+        if speed is None:
+            speed = self.forward_speed
+            
+        if self.robot_controller and hasattr(self.robot_controller, 'robot_running') and self.robot_controller.robot_running:
+            try:
+                result = self.robot_controller.set_velocity(-speed, 0.0, 0.0)
+                if result.get('status') != 'success':
+                    print(f"后退命令执行失败: {result.get('message', '未知错误')}")
+                    return False
+                return True
+            except Exception as e:
+                print(f"发送后退命令失败: {e}")
+                return False
+        return False
+    
+    def send_search_rotation_command(self, angular_velocity: float = None) -> bool:
+        """
+        发送搜索旋转命令
+        
+        Args:
+            angular_velocity: 角速度，如果为None则使用默认值
+            
+        Returns:
+            True如果命令发送成功
+        """
+        if angular_velocity is None:
+            angular_velocity = self.angular_speed_base
+            
+        if self.robot_controller and hasattr(self.robot_controller, 'robot_running') and self.robot_controller.robot_running:
+            try:
+                result = self.robot_controller.set_velocity(0.0, 0.0, angular_velocity)
+                if result.get('status') != 'success':
+                    print(f"搜索旋转命令执行失败: {result.get('message', '未知错误')}")
+                    return False
+                return True
+            except Exception as e:
+                print(f"发送搜索旋转命令失败: {e}")
+                return False
+        return False
+    
     def reset_pid(self):
         """重置PID控制器"""
         self.prev_error = 0
@@ -278,6 +363,9 @@ class BallController:
         if 'kd' in params:
             self.kd = max(0, min(0.01, params['kd']))
         
+        if 'forward_speed' in params:
+            self.forward_speed = max(0.1, min(1.0, params['forward_speed']))
+        
         # 重置PID控制器
         self.reset_pid()
         
@@ -296,5 +384,6 @@ class BallController:
             'kp': self.kp,
             'ki': self.ki,
             'kd': self.kd,
-            'detection_timeout': self.detection_timeout
+            'detection_timeout': self.detection_timeout,
+            'forward_speed': self.forward_speed
         }

@@ -6,8 +6,9 @@
         constructor(messageHandler) {
             this.messageHandler = messageHandler;
             this.pickupMode = false;
-            this.trackingActive = false;
+            this.currentState = 'idle';
             this.currentTarget = null;
+            this.stats = {};
             
             this.init();
         }
@@ -26,6 +27,20 @@
                     this.togglePickupMode();
                 });
             }
+            
+            const emergencyStopButton = document.getElementById('emergency-stop');
+            if (emergencyStopButton) {
+                emergencyStopButton.addEventListener('click', () => {
+                    this.emergencyStop();
+                });
+            }
+            
+            const restartButton = document.getElementById('restart-pickup');
+            if (restartButton) {
+                restartButton.addEventListener('click', () => {
+                    this.restartPickup();
+                });
+            }
         }
         
         // 切换拾取模式
@@ -41,6 +56,7 @@
                 
                 if (result.status === 'success') {
                     this.pickupMode = result.pickup_mode;
+                    this.currentState = result.current_state || 'idle';
                     this.messageHandler.showMessage(result.message, 'success');
                     this.updatePickupUI();
                     return { success: true, pickup_mode: result.pickup_mode };
@@ -68,7 +84,8 @@
                 
                 if (result) {
                     this.pickupMode = result.pickup_mode;
-                    this.trackingActive = result.tracking_active;
+                    this.currentState = result.current_state || 'idle';
+                    this.stats = result.stats || {};
                     this.updatePickupUI();
                     return result;
                 }
@@ -149,14 +166,70 @@
             }
         }
         
+        // 紧急停止
+        async emergencyStop() {
+            try {
+                const response = await fetch('/api/pickup/emergency_stop', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    this.pickupMode = false;
+                    this.currentState = 'idle';
+                    this.messageHandler.showMessage(result.message, 'warning');
+                    this.updatePickupUI();
+                    return result;
+                } else {
+                    this.messageHandler.showMessage(result.message, 'error');
+                    return result;
+                }
+            } catch (error) {
+                const errorMsg = `紧急停止失败: ${error.message}`;
+                this.messageHandler.showMessage(errorMsg, 'error');
+                return { success: false, message: errorMsg };
+            }
+        }
+        
+        // 重启拾取
+        async restartPickup() {
+            try {
+                const response = await fetch('/api/pickup/restart', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    this.currentState = 'searching';
+                    this.messageHandler.showMessage(result.message, 'success');
+                    this.updatePickupUI();
+                    return result;
+                } else {
+                    this.messageHandler.showMessage(result.message, 'error');
+                    return result;
+                }
+            } catch (error) {
+                const errorMsg = `重启拾取失败: ${error.message}`;
+                this.messageHandler.showMessage(errorMsg, 'error');
+                return { success: false, message: errorMsg };
+            }
+        }
+        
         // 更新拾取模式UI
         updatePickupUI() {
             const pickupButton = document.getElementById('toggle-pickup');
             const pickupStatusGroup = document.getElementById('pickup-status-group');
             const pickupModeStatus = document.getElementById('pickup-mode-status');
-            const trackingStatus = document.getElementById('tracking-status');
+            const currentStateElement = document.getElementById('current-state');
+            const ballsPickedElement = document.getElementById('balls-picked');
             
-            console.log('更新拾取UI:', { pickupMode: this.pickupMode, trackingActive: this.trackingActive });
+            console.log('更新拾取UI:', { pickupMode: this.pickupMode, currentState: this.currentState, stats: this.stats });
             
             if (pickupButton) {
                 if (this.pickupMode) {
@@ -173,6 +246,12 @@
                 pickupStatusGroup.style.display = this.pickupMode ? 'block' : 'none';
             }
             
+            // 显示/隐藏拾取控制按钮
+            const pickupControlButtons = document.getElementById('pickup-control-buttons');
+            if (pickupControlButtons) {
+                pickupControlButtons.style.display = this.pickupMode ? 'block' : 'none';
+            }
+            
             if (pickupModeStatus) {
                 if (this.pickupMode) {
                     pickupModeStatus.textContent = '开启';
@@ -183,14 +262,35 @@
                 }
             }
             
-            if (trackingStatus) {
-                if (this.trackingActive && this.pickupMode) {
-                    trackingStatus.textContent = '激活';
-                    trackingStatus.className = 'status-value online';
+            // 更新当前状态显示
+            if (currentStateElement) {
+                const stateMap = {
+                    'idle': '空闲',
+                    'searching': '搜索',
+                    'tracking': '追踪',
+                    'approaching': '接近',
+                    'backing_up': '后退',
+                    'rotating_search': '360°搜索',
+                    'completed': '完成'
+                };
+                
+                const stateText = stateMap[this.currentState] || this.currentState;
+                currentStateElement.textContent = stateText;
+                
+                // 根据状态设置不同的样式
+                currentStateElement.className = 'status-value';
+                if (this.currentState === 'idle' || this.currentState === 'completed') {
+                    currentStateElement.classList.add('offline');
+                } else if (this.currentState === 'approaching') {
+                    currentStateElement.classList.add('warning');
                 } else {
-                    trackingStatus.textContent = '未激活';
-                    trackingStatus.className = 'status-value offline';
+                    currentStateElement.classList.add('online');
                 }
+            }
+            
+            // 更新已拾取球数
+            if (ballsPickedElement && this.stats) {
+                ballsPickedElement.textContent = this.stats.balls_picked || 0;
             }
         }
         
@@ -198,7 +298,26 @@
         handlePickupModeUpdate(data) {
             console.log('拾取模式更新:', data);
             this.pickupMode = data.enabled;
-            this.trackingActive = data.tracking_active;
+            this.currentState = data.current_state || 'idle';
+            this.updatePickupUI();
+            
+            if (data.message) {
+                this.messageHandler.showMessage(data.message, 'info');
+            }
+        }
+        
+        // 处理状态变化事件
+        handleStateChange(data) {
+            console.log('状态变化:', data);
+            this.currentState = data.new_state;
+            this.updatePickupUI();
+        }
+        
+        // 处理拾取状态更新事件
+        handlePickupStatusUpdate(data) {
+            console.log('拾取状态更新:', data);
+            this.currentState = data.state;
+            this.stats = data.stats || {};
             this.updatePickupUI();
             
             if (data.message) {
@@ -210,9 +329,8 @@
         handleBallTrackingUpdate(data) {
             console.log('球跟踪更新:', data);
             this.currentTarget = data.target_ball;
-            
-            // 更新跟踪状态
-            this.trackingActive = true;
+            this.currentState = data.state || this.currentState;
+            this.stats = data.stats || this.stats;
             
             // 更新目标距离显示
             const targetDistance = document.getElementById('target-distance');
@@ -220,12 +338,13 @@
                 targetDistance.textContent = Math.round(data.target_ball.distance_to_center);
             }
             
-            // 更新跟踪状态显示
-            const trackingStatus = document.getElementById('tracking-status');
-            if (trackingStatus) {
-                trackingStatus.textContent = '跟踪中';
-                trackingStatus.className = 'status-value online';
+            // 更新球面积显示（用于判断接近程度）
+            const ballArea = document.getElementById('ball-area');
+            if (ballArea && data.target_ball) {
+                ballArea.textContent = Math.round(data.target_ball.area);
             }
+            
+            this.updatePickupUI();
         }
         
         // 处理球对准中心事件
@@ -243,7 +362,6 @@
         handleNoBallDetected(data) {
             console.log('无球检测:', data.message);
             this.currentTarget = null;
-            this.trackingActive = false;
             
             // 重置目标距离显示
             const targetDistance = document.getElementById('target-distance');
@@ -251,11 +369,10 @@
                 targetDistance.textContent = '--';
             }
             
-            // 更新跟踪状态显示
-            const trackingStatus = document.getElementById('tracking-status');
-            if (trackingStatus && this.pickupMode) {
-                trackingStatus.textContent = '搜索中';
-                trackingStatus.className = 'status-value warning';
+            // 重置球面积显示
+            const ballArea = document.getElementById('ball-area');
+            if (ballArea) {
+                ballArea.textContent = '--';
             }
         }
         
@@ -264,14 +381,19 @@
             return this.pickupMode;
         }
         
-        // 获取跟踪状态
-        isTrackingActive() {
-            return this.trackingActive;
+        // 获取当前状态
+        getCurrentState() {
+            return this.currentState;
         }
         
         // 获取当前目标
         getCurrentTarget() {
             return this.currentTarget;
+        }
+        
+        // 获取统计信息
+        getStats() {
+            return this.stats;
         }
     }
 

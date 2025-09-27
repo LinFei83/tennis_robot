@@ -42,6 +42,11 @@
                         <button id="toggle-vision" class="btn btn-primary">启动视觉</button>
                         <button id="toggle-pickup" class="btn btn-secondary">开启拾取</button>
                     </div>
+                    
+                    <div class="button-group" id="pickup-control-buttons" style="display: none;">
+                        <button id="emergency-stop" class="btn btn-danger">紧急停止</button>
+                        <button id="restart-pickup" class="btn btn-info">重启拾取</button>
+                    </div>
                 </div>
 
                 <!-- 拾取模式状态 -->
@@ -53,13 +58,23 @@
                             <span id="pickup-mode-status" class="status-value offline">关闭</span>
                         </div>
                         <div class="status-item">
-                            <span class="status-label">跟踪状态:</span>
-                            <span id="tracking-status" class="status-value offline">未激活</span>
+                            <span class="status-label">当前状态:</span>
+                            <span id="current-state" class="status-value offline">空闲</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">已拾取球数:</span>
+                            <span id="balls-picked" class="status-value">0</span>
+                            <span class="status-unit">个</span>
                         </div>
                         <div class="status-item">
                             <span class="status-label">目标距离:</span>
                             <span id="target-distance" class="status-value">--</span>
                             <span class="status-unit">px</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">球面积:</span>
+                            <span id="ball-area" class="status-value">--</span>
+                            <span class="status-unit">px²</span>
                         </div>
                     </div>
                 </div>
