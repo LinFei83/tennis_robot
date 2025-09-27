@@ -85,7 +85,7 @@ class RobotController {
             });
             
             this.socketManager.setEventHandler('velocity_update', (data) => {
-                this.uiManager.updateVelocityDisplay(data);
+                // 只处理速度倍数更新，实际速度显示由里程计数据提供
                 if (data.speed_multiplier !== undefined) {
                     this.robotControl.updateSpeedMultiplier(data.speed_multiplier);
                     this.uiManager.updateSpeedDisplay(data.speed_multiplier);
@@ -98,6 +98,14 @@ class RobotController {
             
             this.socketManager.setEventHandler('odom_update', (data) => {
                 this.uiManager.updateOdometryDisplay(data);
+                // 使用里程计中的真实速度数据更新速度显示
+                if (data.linear_velocity && data.angular_velocity) {
+                    this.uiManager.updateVelocityDisplay({
+                        x: data.linear_velocity.x,
+                        y: data.linear_velocity.y,
+                        z: data.angular_velocity.z
+                    });
+                }
             });
             
             this.socketManager.setEventHandler('voltage_update', (data) => {

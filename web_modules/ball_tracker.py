@@ -52,6 +52,11 @@ class BallTracker:
         self.last_detection_time = 0
         self.last_ball_area = 0  # 用于检测球是否消失
         
+        # 连续帧检测机制
+        self.detection_history = []  # 存储最近的检测结果
+        self.max_history_frames = 3  # 保存最近3帧的检测结果
+        self.required_consecutive_frames = 3  # 需要连续3帧确认状态变化
+        
         # 状态计时器
         self.state_start_time = 0
         self.rotation_start_angle = 0
@@ -102,6 +107,54 @@ class BallTracker:
             'message': message
         }
     
+    def _update_detection_history(self, has_ball: bool, target_ball: Optional[dict] = None):
+        """
+        更新检测历史记录
+        
+        Args:
+            has_ball: 当前帧是否检测到球
+            target_ball: 目标球信息（如果有的话）
+        """
+        # 添加当前帧的检测结果
+        detection_data = {
+            'has_ball': has_ball,
+            'target_ball': target_ball,
+            'timestamp': time.time()
+        }
+        
+        self.detection_history.append(detection_data)
+        
+        # 保持历史记录长度不超过最大值
+        if len(self.detection_history) > self.max_history_frames:
+            self.detection_history.pop(0)
+    
+    def _check_consecutive_detection(self, expected_state: bool) -> bool:
+        """
+        检查是否有连续的检测结果
+        
+        Args:
+            expected_state: 期望的检测状态（True=有球，False=无球）
+            
+        Returns:
+            bool: 是否有连续required_consecutive_frames帧的期望状态
+        """
+        if len(self.detection_history) < self.required_consecutive_frames:
+            return False
+        
+        # 检查最近的required_consecutive_frames帧
+        recent_frames = self.detection_history[-self.required_consecutive_frames:]
+        
+        # 检查是否所有帧都符合期望状态
+        for frame in recent_frames:
+            if frame['has_ball'] != expected_state:
+                return False
+        
+        return True
+    
+    def _reset_detection_history(self):
+        """重置检测历史记录"""
+        self.detection_history = []
+    
     def _change_state(self, new_state: PickupState):
         """
         改变状态机状态
@@ -114,6 +167,9 @@ class BallTracker:
             self.current_state = new_state
             self.state_start_time = time.time()
             self.tracking_stats['current_state'] = new_state.value
+            
+            # 状态切换时重置检测历史，确保新状态从干净的历史开始
+            self._reset_detection_history()
             
             print(f"状态变化: {old_state.value} -> {new_state.value}")
             
@@ -160,12 +216,20 @@ class BallTracker:
             target_ball = self.ball_controller.select_target_ball(valid_balls, 'largest')
             
             if target_ball:
+                # 更新检测历史：有球
+                self._update_detection_history(True, target_ball)
+                
                 self.target_ball = target_ball
                 self.last_ball_area = target_ball['area']
                 self._process_state_machine(target_ball)
                 self.tracking_stats['successful_tracks'] += 1
+            else:
+                # 更新检测历史：无球
+                self._update_detection_history(False)
+                self._process_state_machine(None)
         else:
-            # 没有检测到球
+            # 没有检测到球，更新检测历史
+            self._update_detection_history(False)
             self._process_state_machine(None)
     
     def _process_state_machine(self, target_ball: Optional[dict]):
@@ -199,9 +263,14 @@ class BallTracker:
     def _handle_searching_state(self, target_ball: Optional[dict]):
         """处理搜索状态"""
         if target_ball:
-            # 找到球，开始追踪
-            self._change_state(PickupState.TRACKING)
-            self._emit_message(f"发现网球，开始追踪")
+            # 检查是否连续3帧都检测到球
+            if self._check_consecutive_detection(True):
+                # 连续检测到球，开始追踪
+                self._change_state(PickupState.TRACKING)
+                self._emit_message(f"连续检测到网球，开始追踪")
+            else:
+                # 还没有连续检测到，继续搜索但保持静止
+                self.ball_controller.stop_robot()
         else:
             # 继续搜索，保持静止或缓慢旋转
             self.ball_controller.stop_robot()
@@ -209,11 +278,17 @@ class BallTracker:
     def _handle_tracking_state(self, target_ball: Optional[dict], state_duration: float):
         """处理追踪状态"""
         if not target_ball:
-            # 球丢失，回到搜索状态
-            self._change_state(PickupState.SEARCHING)
-            self.ball_controller.stop_robot()
-            self._emit_message("网球丢失，重新搜索")
-            return
+            # 检查是否连续3帧都没有检测到球
+            if self._check_consecutive_detection(False):
+                # 连续丢失球，回到搜索状态
+                self._change_state(PickupState.SEARCHING)
+                self.ball_controller.stop_robot()
+                self._emit_message("网球连续丢失，重新搜索")
+                return
+            else:
+                # 还没有连续丢失，继续保持当前状态但停止移动
+                self.ball_controller.stop_robot()
+                return
         
         # 检查是否已经对准中心
         if self.ball_controller.is_ball_centered(target_ball):
@@ -235,19 +310,24 @@ class BallTracker:
     def _handle_approaching_state(self, target_ball: Optional[dict], state_duration: float):
         """处理接近状态"""
         if not target_ball:
-            # 视野中没有球了，表示拾取成功
-            self.ball_controller.stop_robot()
-            self._change_state(PickupState.BACKING_UP)
-            self.tracking_stats['balls_picked'] += 1
-            self._emit_message("网球已拾取成功，开始后退")
-            return
+            # 检查是否连续3帧都没有检测到球（表示拾取成功）
+            if self._check_consecutive_detection(False):
+                # 连续没有检测到球，视野中没有球了，表示拾取成功
+                self.ball_controller.stop_robot()
+                self._change_state(PickupState.BACKING_UP)
+                self.tracking_stats['balls_picked'] += 1
+                self._emit_message("网球已拾取成功，开始后退")
+                return
+            else:
+                # 还没有连续丢失，继续前进
+                pass
         
-        # 检查球是否还在中心
-        if not self.ball_controller.is_ball_centered(target_ball):
-            # 球偏离中心，重新追踪
-            self._change_state(PickupState.TRACKING)
-            self._emit_message("网球偏离中心，重新追踪")
-            return
+        # # 检查球是否还在中心
+        # if not self.ball_controller.is_ball_centered(target_ball):
+        #     # 球偏离中心，重新追踪
+        #     self._change_state(PickupState.TRACKING)
+        #     self._emit_message("网球偏离中心，重新追踪")
+        #     return
         
         # 继续前进
         self.ball_controller.send_forward_command()
@@ -275,11 +355,16 @@ class BallTracker:
     def _handle_rotating_search_state(self, target_ball: Optional[dict], state_duration: float):
         """处理360度搜索状态"""
         if target_ball:
-            # 找到新的球，停止搜索，开始追踪
-            self.ball_controller.stop_robot()
-            self._change_state(PickupState.TRACKING)
-            self._emit_message("发现新网球，开始追踪")
-            return
+            # 检查是否连续3帧都检测到球
+            if self._check_consecutive_detection(True):
+                # 连续检测到新球，停止搜索，开始追踪
+                self.ball_controller.stop_robot()
+                self._change_state(PickupState.TRACKING)
+                self._emit_message("连续发现新网球，开始追踪")
+                return
+            else:
+                # 还没有连续检测到，继续搜索
+                pass
         
         # 继续旋转搜索
         self.ball_controller.send_search_rotation_command(self.rotation_speed)

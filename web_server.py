@@ -230,11 +230,12 @@ class WebRobotController:
                 result = self.robot_controller.handle_control_command(command)
                 
                 if result['status'] == 'success':
-                    # 发送速度更新，包含速度倍数信息
-                    velocity_data = result['velocity'].copy()
+                    # 发送速度倍数更新（实际速度显示由里程计数据提供）
+                    update_data = {}
                     if 'speed_multiplier' in result:
-                        velocity_data['speed_multiplier'] = result['speed_multiplier']
-                    emit('velocity_update', velocity_data)
+                        update_data['speed_multiplier'] = result['speed_multiplier']
+                    if update_data:  # 只有当有速度倍数更新时才发送
+                        emit('velocity_update', update_data)
                     
                     # 如果有消息（如速度调节反馈），也发送消息
                     if 'message' in result:

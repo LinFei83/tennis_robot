@@ -107,6 +107,18 @@
         }
     }
     
+    // 生成带时间戳的文件名
+    generateTimestampedFilename(baseName, extension) {
+        const now = new Date();
+        const timestamp = now.getFullYear() +
+                         String(now.getMonth() + 1).padStart(2, '0') +
+                         String(now.getDate()).padStart(2, '0') + '_' +
+                         String(now.getHours()).padStart(2, '0') +
+                         String(now.getMinutes()).padStart(2, '0') +
+                         String(now.getSeconds()).padStart(2, '0');
+        return `${baseName}_${timestamp}.${extension}`;
+    }
+    
     // 截取原始图像
     async captureOriginalImage() {
         try {
@@ -118,7 +130,8 @@
             });
             
             if (response.ok) {
-                const result = await this.handleImageDownload(response, 'original_image.jpg');
+                const filename = this.generateTimestampedFilename('original_image', 'jpg');
+                const result = await this.handleImageDownload(response, filename);
                 if (result.success) {
                     this.messageHandler.showMessage('原始图像截取成功', 'success');
                 }
@@ -147,7 +160,8 @@
             });
             
             if (response.ok) {
-                const result = await this.handleImageDownload(response, 'detection_image.jpg');
+                const filename = this.generateTimestampedFilename('detection_image', 'jpg');
+                const result = await this.handleImageDownload(response, filename);
                 if (result.success) {
                     this.messageHandler.showMessage('检测画面截取成功', 'success');
                 }
