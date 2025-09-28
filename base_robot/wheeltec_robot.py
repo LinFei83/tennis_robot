@@ -59,6 +59,7 @@ class OdomData:
     orientation: QuaternionData = field(default_factory=QuaternionData)
     linear_velocity: VelPosData = field(default_factory=VelPosData)
     angular_velocity: VelPosData = field(default_factory=VelPosData)
+    angle: float = 0.0  # 绕z轴的角度（弧度）
     timestamp: float = 0.0
 
 
@@ -398,6 +399,7 @@ class WheelTecRobot:
             orientation=odom_quat,
             linear_velocity=VelPosData(X=self.robot_vel.X, Y=self.robot_vel.Y, Z=0.0),
             angular_velocity=VelPosData(X=0.0, Y=0.0, Z=self.robot_vel.Z),
+            angle=self.robot_pos.Z,  # 添加绕z轴的角度（弧度）
             timestamp=time.time()
         )
     
@@ -435,6 +437,7 @@ class WheelTecRobot:
                               'y': odom_data.orientation.y, 'z': odom_data.orientation.z},
                 'linear_velocity': {'x': odom_data.linear_velocity.X, 'y': odom_data.linear_velocity.Y, 'z': odom_data.linear_velocity.Z},
                 'angular_velocity': {'x': odom_data.angular_velocity.X, 'y': odom_data.angular_velocity.Y, 'z': odom_data.angular_velocity.Z},
+                'angle': odom_data.angle,  # 添加绕z轴的角度（弧度）
                 'timestamp': odom_data.timestamp
             }
             self.callbacks.odom_callback(odom_dict)

@@ -191,16 +191,13 @@ class VisionProcessor:
                     boxes, scores = self.detector.detect(frame)
                     detection_time = time.time() - detection_start
                     
-                    # 更新自适应跳帧
-                    self.camera_manager.update_adaptive_skip(detection_time)
                     
                     # 绘制检测结果
                     annotated_frame = self.detector.draw_detections(frame, boxes, scores)
                     
                     # 添加性能信息
                     fps = self.perf_monitor.get_fps()
-                    skip_frames = self.camera_manager.get_skip_frames()
-                    info_text = f"FPS: {fps:.1f} | {detection_time*1000:.1f}ms | {len(boxes)} | Skip:{skip_frames}"
+                    info_text = f"FPS: {fps:.1f} | {detection_time*1000:.1f}ms | {len(boxes)}"
 
 
                     # 保存当前帧和检测结果

@@ -17,7 +17,7 @@ def print_usage_instructions():
     print("  'q' - 退出程序")
 
 
-def create_info_overlay(frame, fps, detection_time, num_detections, skip_frames):
+def create_info_overlay(frame, fps, detection_time, num_detections):
     """
     在帧上添加信息覆盖层
     
@@ -26,12 +26,11 @@ def create_info_overlay(frame, fps, detection_time, num_detections, skip_frames)
         fps: 当前FPS
         detection_time: 检测耗时（秒）
         num_detections: 检测到的目标数量
-        skip_frames: 跳帧数
         
     Returns:
         带信息覆盖的帧
     """
-    info_text = f"FPS: {fps:.1f} | {detection_time*1000:.1f}ms | {num_detections} | Skip:{skip_frames}"
+    info_text = f"FPS: {fps:.1f} | {detection_time*1000:.1f}ms | {num_detections}"
     cv2.putText(frame, info_text, (10, 30), 
                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
     return frame
@@ -82,17 +81,13 @@ def main():
                 boxes, scores = detector.detect(frame)
                 detection_time = time.time() - detection_start
                 
-                # 更新自适应跳帧参数
-                camera_manager.update_adaptive_skip(detection_time)
-                
                 # 绘制检测结果
                 annotated_frame = detector.draw_detections(frame, boxes, scores)
                 
                 # 添加性能信息覆盖层
                 fps = perf_monitor.get_fps()
-                skip_frames = camera_manager.get_skip_frames()
                 annotated_frame = create_info_overlay(
-                    annotated_frame, fps, detection_time, len(boxes), skip_frames
+                    annotated_frame, fps, detection_time, len(boxes)
                 )
                 
                 # 显示结果

@@ -143,9 +143,18 @@
         
         const positionX = document.getElementById('position-x');
         const positionY = document.getElementById('position-y');
+        const positionAngle = document.getElementById('position-angle');
         
         if (positionX) positionX.textContent = data.position.x.toFixed(2);
         if (positionY) positionY.textContent = data.position.y.toFixed(2);
+        
+        // 显示绕z轴的角度（弧度转角度）
+        if (positionAngle && data.angle !== undefined) {
+            const angleDegrees = (data.angle * 180 / Math.PI) % 360;
+            // 确保角度在0-360度范围内
+            const normalizedAngle = angleDegrees < 0 ? angleDegrees + 360 : angleDegrees;
+            positionAngle.textContent = normalizedAngle.toFixed(2);
+        }
     }
     
     // 更新电压显示

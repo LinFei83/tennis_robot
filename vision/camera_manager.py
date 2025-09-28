@@ -13,7 +13,7 @@ class CameraConfig:
     """摄像头配置管理类"""
     
     DEFAULT_CONFIG = {
-        "camera": {"index": 0, "fps": 30, "buffer_size": 5},
+        "camera": {"index": 0, "fps": 30},
         "image_settings": {"brightness": 128, "contrast": 128, "saturation": 128, "exposure": -6},
         "detection": {"confidence_threshold": 0.6, "iou_threshold": 0.5}
     }
@@ -76,8 +76,6 @@ class CameraManager:
         self.target_width = target_width
         self.target_height = target_height
         self.cap = None
-        self.skip_frames = 1
-        self.recent_detection_times = []
         
     def initialize_camera(self) -> bool:
         """
@@ -127,7 +125,9 @@ class CameraManager:
         
         # 基础摄像头参数
         self.cap.set(cv2.CAP_PROP_FPS, camera_config.get("fps", 30))
-        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, camera_config.get("buffer_size", 5))
+        # 设置最小缓冲区以减少延迟
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        print("设置摄像头缓冲区大小: 1")
         
         # 图像质量参数
         try:
@@ -155,7 +155,7 @@ class CameraManager:
     
     def get_latest_frame(self) -> Tuple[bool, Optional[any]]:
         """
-        智能获取最新帧，根据处理时间自适应跳过帧数
+        始终获取摄像头最新帧，清空缓冲区以减少延迟
         
         Returns:
             Tuple[bool, Optional[numpy.ndarray]]: (是否成功, 帧数据)
@@ -166,42 +166,19 @@ class CameraManager:
         frame = None
         ret = False
         
-        # 根据skip_frames参数跳过相应数量的帧
-        for i in range(max(1, self.skip_frames)):
-            ret, current_frame = self.cap.read()
-            if ret:
+        # 清空缓冲区，获取最新帧
+        # 由于缓冲区设置为1，读取2帧以确保获得最新帧
+        for _ in range(2):
+            current_ret, current_frame = self.cap.read()
+            if current_ret:
+                ret = current_ret
                 frame = current_frame
             else:
+                # 如果读取失败，停止尝试
                 break
         
         return ret, frame
     
-    def update_adaptive_skip(self, detection_time: float, target_fps: float = 10.0):
-        """
-        更新自适应跳帧参数
-        
-        Args:
-            detection_time: 检测耗时
-            target_fps: 目标FPS
-        """
-        # 更新检测时间历史
-        self.recent_detection_times.append(detection_time)
-        if len(self.recent_detection_times) > 10:
-            self.recent_detection_times.pop(0)
-        
-        # 自适应调整跳过帧数
-        if len(self.recent_detection_times) >= 5:
-            avg_detection_time = sum(self.recent_detection_times) / len(self.recent_detection_times)
-            frame_time = 1.0 / target_fps
-            
-            if avg_detection_time > frame_time * 0.8:
-                self.skip_frames = min(3, self.skip_frames + 1)
-            elif avg_detection_time < frame_time * 0.3:
-                self.skip_frames = max(1, self.skip_frames - 1)
-    
-    def get_skip_frames(self) -> int:
-        """获取当前跳帧数"""
-        return self.skip_frames
     
     def release(self):
         """释放摄像头资源"""

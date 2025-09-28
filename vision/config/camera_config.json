@@ -1,8 +1,7 @@
 {
   "camera": {
     "index": 0,
-    "fps": 14,
-    "buffer_size": 6
+    "fps": 14
   },
   "image_settings": {
     "brightness": 16,

@@ -34,7 +34,6 @@ class CameraTuner:
             'saturation': {'min': 0, 'max': 255, 'default': 128},
             'exposure': {'min': 0, 'max': 300, 'default': 164},       # 曝光控制（负值表示自动曝光关闭）
             'gain': {'min': 0, 'max': 100, 'default': 0},             # 增益控制
-            'buffer_size': {'min': 1, 'max': 10, 'default': 5}
         }
         
         # 参数显示名称映射（用于滑条显示）
@@ -45,7 +44,6 @@ class CameraTuner:
             'saturation': 'baohedu',    # 饱和度
             'exposure': 'baoguang',     # 曝光
             'gain': 'zengyi',           # 增益
-            'buffer_size': 'huanchong'  # 缓冲
         }
         
         # 当前参数值
