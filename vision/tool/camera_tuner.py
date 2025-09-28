@@ -32,7 +32,8 @@ class CameraTuner:
             'brightness': {'min': 0, 'max': 100, 'default': 30},      # 根据实际范围调整
             'contrast': {'min': 0, 'max': 100, 'default': 29},        # 根据实际范围调整
             'saturation': {'min': 0, 'max': 255, 'default': 128},
-            'gain': {'min': 0, 'max': 100, 'default': 0},             # 增益可以替代曝光控制
+            'exposure': {'min': 0, 'max': 300, 'default': 164},       # 曝光控制（负值表示自动曝光关闭）
+            'gain': {'min': 0, 'max': 100, 'default': 0},             # 增益控制
             'buffer_size': {'min': 1, 'max': 10, 'default': 5}
         }
         
@@ -42,7 +43,8 @@ class CameraTuner:
             'brightness': 'liangdu',    # 亮度
             'contrast': 'duibidu',      # 对比度
             'saturation': 'baohedu',    # 饱和度
-            'gain': 'zengyi',           # 增益（替代曝光）
+            'exposure': 'baoguang',     # 曝光
+            'gain': 'zengyi',           # 增益
             'buffer_size': 'huanchong'  # 缓冲
         }
         
@@ -52,6 +54,7 @@ class CameraTuner:
             'brightness': self.config['image_settings'].get('brightness', 30),
             'contrast': self.config['image_settings'].get('contrast', 29),
             'saturation': self.config['image_settings'].get('saturation', 128),
+            'exposure': self.config['image_settings'].get('exposure', -6),
             'gain': self.config['image_settings'].get('gain', 0),
             'buffer_size': self.config['camera'].get('buffer_size', 5)
         }
@@ -67,14 +70,14 @@ class CameraTuner:
             print(f"配置文件不存在，使用默认配置")
             return {
                 "camera": {"index": 0, "fps": 30, "buffer_size": 5},
-                "image_settings": {"brightness": 30, "contrast": 29, "saturation": 128, "gain": 0},
+                "image_settings": {"brightness": 30, "contrast": 29, "saturation": 128, "exposure": -6, "gain": 0},
                 "detection": {"confidence_threshold": 0.6, "iou_threshold": 0.5}
             }
         except json.JSONDecodeError as e:
             print(f"配置文件格式错误: {e}，使用默认配置")
             return {
                 "camera": {"index": 0, "fps": 30, "buffer_size": 5},
-                "image_settings": {"brightness": 30, "contrast": 29, "saturation": 128, "gain": 0},
+                "image_settings": {"brightness": 30, "contrast": 29, "saturation": 128, "exposure": -6, "gain": 0},
                 "detection": {"confidence_threshold": 0.6, "iou_threshold": 0.5}
             }
     
@@ -86,6 +89,7 @@ class CameraTuner:
         self.config['image_settings']['brightness'] = self.current_params['brightness']
         self.config['image_settings']['contrast'] = self.current_params['contrast']
         self.config['image_settings']['saturation'] = self.current_params['saturation']
+        self.config['image_settings']['exposure'] = self.current_params['exposure']
         self.config['image_settings']['gain'] = self.current_params['gain']
         
         try:
@@ -128,7 +132,10 @@ class CameraTuner:
             self.cap.set(cv2.CAP_PROP_CONTRAST, self.current_params['contrast'])
             self.cap.set(cv2.CAP_PROP_SATURATION, self.current_params['saturation'])
             
-            # 使用增益控制替代曝光（如果摄像头支持）
+            # 设置曝光参数
+            self.cap.set(cv2.CAP_PROP_EXPOSURE, self.current_params['exposure'])
+            
+            # 设置增益控制
             self.cap.set(cv2.CAP_PROP_GAIN, self.current_params['gain'])
             
         except Exception as e:

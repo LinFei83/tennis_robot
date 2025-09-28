@@ -18,7 +18,7 @@ from vision.camera_manager import CameraConfig, CameraManager, PerformanceMonito
 class VisionProcessor:
     """视觉处理器"""
     
-    def __init__(self, socketio=None, model_path="vision/model/model_float32_myv8_2.tflite"):
+    def __init__(self, socketio=None, model_path="vision/model/model_float32_myv8_3.tflite"):
         """
         初始化视觉处理器
         

@@ -19,11 +19,10 @@ from .ball_controller import BallController
 class PickupState(Enum):
     """拾取状态枚举"""
     IDLE = "idle"                    # 空闲状态
-    SEARCHING = "searching"          # 搜索网球
+    SEARCHING = "searching"          # 360度搜索网球
     TRACKING = "tracking"            # 追踪网球到中心
     APPROACHING = "approaching"      # 前进接近网球
     BACKING_UP = "backing_up"        # 后退
-    ROTATING_SEARCH = "rotating_search"  # 360度搜索
     COMPLETED = "completed"          # 拾取完成
 
 
@@ -86,7 +85,10 @@ class BallTracker:
         if self.pickup_mode:
             self._change_state(PickupState.SEARCHING)
             self.ball_controller.reset_pid()
-            message = "拾取模式已开启，开始搜索网球"
+            # 初始化搜索参数
+            self.rotation_start_angle = 0
+            self.total_rotation = 0
+            message = "拾取模式已开启，开始360度搜索网球"
         else:
             self._change_state(PickupState.IDLE)
             self.ball_controller.stop_robot()
@@ -243,7 +245,7 @@ class BallTracker:
         state_duration = current_time - self.state_start_time
         
         if self.current_state == PickupState.SEARCHING:
-            self._handle_searching_state(target_ball)
+            self._handle_searching_state(target_ball, state_duration)
             
         elif self.current_state == PickupState.TRACKING:
             self._handle_tracking_state(target_ball, state_duration)
@@ -254,26 +256,36 @@ class BallTracker:
         elif self.current_state == PickupState.BACKING_UP:
             self._handle_backing_up_state(state_duration)
             
-        elif self.current_state == PickupState.ROTATING_SEARCH:
-            self._handle_rotating_search_state(target_ball, state_duration)
-            
         elif self.current_state == PickupState.COMPLETED:
             self._handle_completed_state()
     
-    def _handle_searching_state(self, target_ball: Optional[dict]):
-        """处理搜索状态"""
+    def _handle_searching_state(self, target_ball: Optional[dict], state_duration: float):
+        """处理360度搜索状态"""
         if target_ball:
             # 检查是否连续3帧都检测到球
             if self._check_consecutive_detection(True):
-                # 连续检测到球，开始追踪
+                # 连续检测到球，停止搜索，开始追踪
+                self.ball_controller.stop_robot()
                 self._change_state(PickupState.TRACKING)
                 self._emit_message(f"连续检测到网球，开始追踪")
+                return
             else:
-                # 还没有连续检测到，继续搜索但保持静止
-                self.ball_controller.stop_robot()
-        else:
-            # 继续搜索，保持静止或缓慢旋转
+                # 还没有连续检测到，继续搜索
+                pass
+        
+        # 继续旋转搜索
+        self.ball_controller.send_search_rotation_command(self.rotation_speed)
+        
+        # 估算旋转角度（简单估算）
+        rotation_increment = self.rotation_speed * 0.1  # 假设每100ms调用一次
+        self.total_rotation += rotation_increment
+        
+        # 检查是否完成一圈或搜索超时
+        if self.total_rotation >= 2 * math.pi or state_duration > self.search_timeout:
+            # 完成搜索
             self.ball_controller.stop_robot()
+            self._change_state(PickupState.COMPLETED)
+            self._emit_message("360度搜索完成，拾取任务结束")
     
     def _handle_tracking_state(self, target_ball: Optional[dict], state_duration: float):
         """处理追踪状态"""
@@ -297,9 +309,9 @@ class BallTracker:
             self.tracking_stats['center_hits'] += 1
             self._emit_message("网球已对准中心，开始前进")
             return
-        
-        # 继续追踪球到中心
-        self._track_ball_to_center(target_ball)
+        else:
+            # 继续追踪球到中心
+            self._track_ball_to_center(target_ball)
         
         # 超时检查
         if state_duration > self.search_timeout:
@@ -322,12 +334,12 @@ class BallTracker:
                 # 还没有连续丢失，继续前进
                 pass
         
-        # # 检查球是否还在中心
-        # if not self.ball_controller.is_ball_centered(target_ball):
-        #     # 球偏离中心，重新追踪
-        #     self._change_state(PickupState.TRACKING)
-        #     self._emit_message("网球偏离中心，重新追踪")
-        #     return
+        # 检查球是否还在中心
+        if not self.ball_controller.is_ball_centered(target_ball):
+            # 球偏离中心，重新追踪
+            self._change_state(PickupState.TRACKING)
+            self._emit_message("网球偏离中心，重新追踪")
+            return
         
         # 继续前进
         self.ball_controller.send_forward_command()
@@ -347,38 +359,11 @@ class BallTracker:
         else:
             # 后退完成，开始360度搜索
             self.ball_controller.stop_robot()
-            self._change_state(PickupState.ROTATING_SEARCH)
+            self._change_state(PickupState.SEARCHING)
             self.rotation_start_angle = 0
             self.total_rotation = 0
             self._emit_message("后退完成，开始360度搜索")
     
-    def _handle_rotating_search_state(self, target_ball: Optional[dict], state_duration: float):
-        """处理360度搜索状态"""
-        if target_ball:
-            # 检查是否连续3帧都检测到球
-            if self._check_consecutive_detection(True):
-                # 连续检测到新球，停止搜索，开始追踪
-                self.ball_controller.stop_robot()
-                self._change_state(PickupState.TRACKING)
-                self._emit_message("连续发现新网球，开始追踪")
-                return
-            else:
-                # 还没有连续检测到，继续搜索
-                pass
-        
-        # 继续旋转搜索
-        self.ball_controller.send_search_rotation_command(self.rotation_speed)
-        
-        # 估算旋转角度（简单估算）
-        rotation_increment = self.rotation_speed * 0.1  # 假设每100ms调用一次
-        self.total_rotation += rotation_increment
-        
-        # 检查是否完成一圈
-        if self.total_rotation >= 2 * math.pi or state_duration > self.search_timeout:
-            # 完成搜索
-            self.ball_controller.stop_robot()
-            self._change_state(PickupState.COMPLETED)
-            self._emit_message("360度搜索完成，拾取任务结束")
     
     def _handle_completed_state(self):
         """处理完成状态"""
@@ -400,7 +385,7 @@ class BallTracker:
         
         # 使用控制器计算控制输出
         control_output = self.ball_controller.calculate_control_output(target_ball)
-        
+
         # 发送控制命令
         self.ball_controller.send_rotation_command(control_output['angular_velocity'])
         
@@ -514,7 +499,10 @@ class BallTracker:
         if self.pickup_mode:
             self._change_state(PickupState.SEARCHING)
             self.ball_controller.reset_pid()
-            self._emit_message("重启拾取过程，开始搜索")
+            # 初始化搜索参数
+            self.rotation_start_angle = 0
+            self.total_rotation = 0
+            self._emit_message("重启拾取过程，开始360度搜索")
             
             return {
                 'status': 'success',

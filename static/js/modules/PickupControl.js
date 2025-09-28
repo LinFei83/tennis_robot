@@ -332,7 +332,7 @@
             this.currentState = data.state || this.currentState;
             this.stats = data.stats || this.stats;
             
-            // 更新目标距离显示
+            // 更新目标水平距离显示
             const targetDistance = document.getElementById('target-distance');
             if (targetDistance && data.target_ball) {
                 targetDistance.textContent = Math.round(data.target_ball.distance_to_center);
@@ -351,7 +351,7 @@
         handleBallCentered(data) {
             this.messageHandler.showMessage(data.message, 'success');
             
-            // 更新目标距离显示
+            // 更新目标水平距离显示
             const targetDistance = document.getElementById('target-distance');
             if (targetDistance) {
                 targetDistance.textContent = Math.round(data.distance);
@@ -363,7 +363,7 @@
             console.log('无球检测:', data.message);
             this.currentTarget = null;
             
-            // 重置目标距离显示
+            // 重置目标水平距离显示
             const targetDistance = document.getElementById('target-distance');
             if (targetDistance) {
                 targetDistance.textContent = '--';

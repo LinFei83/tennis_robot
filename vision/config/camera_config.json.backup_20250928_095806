@@ -1,14 +1,14 @@
 {
   "camera": {
     "index": 0,
-    "fps": 14,
-    "buffer_size": 6
+    "fps": 13,
+    "buffer_size": 5
   },
   "image_settings": {
-    "brightness": 16,
-    "contrast": 0,
-    "saturation": 186,
-    "exposure": 200,
+    "brightness": 3,
+    "contrast": 33,
+    "saturation": 119,
+    "exposure": 184,
     "gain": 0
   },
   "detection": {

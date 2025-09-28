@@ -88,11 +88,8 @@ class BallController:
                 height = y2 - y1
                 area = width * height
                 
-                # 计算到屏幕中心的距离
-                distance_to_center = math.sqrt(
-                    (center_x - self.screen_center_x) ** 2 + 
-                    (center_y - self.screen_center_y) ** 2
-                )
+                # 计算到屏幕中心的水平距离（只考虑X轴）
+                distance_to_center = abs(center_x - self.screen_center_x)
                 
                 ball_info = {
                     'id': i,
@@ -125,20 +122,20 @@ class BallController:
             # 选择检测框最大的球（最近的球）
             target_ball = max(valid_balls, key=lambda ball: ball['area'])
         else:  # nearest
-            # 按到屏幕中心的距离排序，选择最近的
+            # 按到屏幕水平中心的距离排序，选择最近的
             target_ball = min(valid_balls, key=lambda ball: ball['distance_to_center'])
         
         return target_ball
     
     def is_ball_centered(self, target_ball: dict) -> bool:
         """
-        检查球是否已经在中心区域
+        检查球是否已经在水平中心区域（只考虑X轴）
         
         Args:
             target_ball: 目标球信息
             
         Returns:
-            True如果球在中心区域
+            True如果球在水平中心区域
         """
         distance_to_center = target_ball['distance_to_center']
         return distance_to_center <= self.center_tolerance

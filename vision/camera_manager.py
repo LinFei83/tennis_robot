@@ -131,10 +131,17 @@ class CameraManager:
         
         # 图像质量参数
         try:
+            # 如果需要设置曝光，先关闭自动曝光
+            if "exposure" in image_config:
+                # 关闭自动曝光 (0.25表示手动模式，0.75表示自动模式)
+                self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+                print("关闭自动曝光，切换到手动曝光模式")
+            
             settings_map = {
                 "brightness": cv2.CAP_PROP_BRIGHTNESS,
                 "contrast": cv2.CAP_PROP_CONTRAST,
                 "saturation": cv2.CAP_PROP_SATURATION,
+                "exposure": cv2.CAP_PROP_EXPOSURE,
                 "gain": cv2.CAP_PROP_GAIN
             }
             
