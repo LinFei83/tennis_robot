@@ -182,7 +182,6 @@
             const pickupStatusGroup = document.getElementById('pickup-status-group');
             const pickupModeStatus = document.getElementById('pickup-mode-status');
             const currentStateElement = document.getElementById('current-state');
-            const ballsPickedElement = document.getElementById('balls-picked');
             
             console.log('更新拾取UI:', { pickupMode: this.pickupMode, currentState: this.currentState, stats: this.stats });
             
@@ -243,10 +242,6 @@
                 }
             }
             
-            // 更新已拾取球数
-            if (ballsPickedElement && this.stats) {
-                ballsPickedElement.textContent = this.stats.balls_picked || 0;
-            }
         }
         
         // 处理拾取模式更新事件

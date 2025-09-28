@@ -77,7 +77,6 @@ class BallTracker:
             'total_detections': 0,
             'successful_tracks': 0,
             'center_hits': 0,
-            'balls_picked': 0,
             'current_state': self.current_state.value,
             'last_target_distance': 0
         }
@@ -369,7 +368,6 @@ class BallTracker:
                 # 连续没有检测到球，视野中没有球了，表示拾取成功
                 self.ball_controller.stop_robot()
                 self._change_state(PickupState.BACKING_UP)
-                self.tracking_stats['balls_picked'] += 1
                 self._emit_message("网球已拾取成功，开始后退")
                 return
             else:
@@ -517,7 +515,6 @@ class BallTracker:
             'total_detections': 0,
             'successful_tracks': 0,
             'center_hits': 0,
-            'balls_picked': 0,
             'current_state': self.current_state.value,
             'last_target_distance': 0
         }
