@@ -38,6 +38,7 @@ class BallTracker:
             socketio: WebSocket对象，用于发送状态更新
         """
         self.socketio = socketio
+        self.robot_controller = robot_controller
         
         # 初始化控制器
         self.ball_controller = BallController(robot_controller)
@@ -64,9 +65,12 @@ class BallTracker:
         # 超时和阈值设置
         self.pickup_timeout = 3.0        # 拾取超时时间
         self.backup_duration = 1.5       # 后退持续时间
-        self.search_timeout = 10.0       # 搜索超时时间
+        self.search_timeout = 25.0       # 搜索超时时间
         self.ball_lost_timeout = 1.0     # 球消失判定时间
         self.rotation_speed = 0.3        # 搜索旋转速度
+        
+        # 面积阈值设置
+        self.area_threshold = 1200.0     # 球面积阈值（px²），用于判断运动策略
         
         # 统计信息
         self.tracking_stats = {
@@ -86,7 +90,7 @@ class BallTracker:
             self._change_state(PickupState.SEARCHING)
             self.ball_controller.reset_pid()
             # 初始化搜索参数
-            self.rotation_start_angle = 0
+            self.rotation_start_angle = self._get_robot_z_angle()
             self.total_rotation = 0
             message = "拾取模式已开启，开始360度搜索网球"
         else:
@@ -156,6 +160,27 @@ class BallTracker:
     def _reset_detection_history(self):
         """重置检测历史记录"""
         self.detection_history = []
+    
+    def _get_robot_z_angle(self) -> float:
+        """
+        获取机器人当前的Z轴角度（弧度）
+        
+        Returns:
+            float: 机器人绕Z轴的角度（弧度），如果无法获取则返回0.0
+        """
+        try:
+            if (self.robot_controller and 
+                hasattr(self.robot_controller, 'robot') and 
+                self.robot_controller.robot and
+                self.robot_controller.robot_running):
+                
+                odom_data = self.robot_controller.robot.get_odometry()
+                return odom_data.angle
+            else:
+                return 0.0
+        except Exception as e:
+            print(f"获取机器人Z轴角度失败: {e}")
+            return 0.0
     
     def _change_state(self, new_state: PickupState):
         """
@@ -276,12 +301,21 @@ class BallTracker:
         # 继续旋转搜索
         self.ball_controller.send_search_rotation_command(self.rotation_speed)
         
-        # 估算旋转角度（简单估算）
-        rotation_increment = self.rotation_speed * 0.1  # 假设每100ms调用一次
-        self.total_rotation += rotation_increment
+        # 根据机器人实际角度计算旋转量
+        current_angle = self._get_robot_z_angle()
+        angle_diff = current_angle - self.rotation_start_angle
+        
+        # 处理角度跨越-π到π的边界情况
+        if angle_diff > math.pi:
+            angle_diff -= 2 * math.pi
+        elif angle_diff < -math.pi:
+            angle_diff += 2 * math.pi
+        
+        # 更新总旋转量（取绝对值，因为我们关心的是旋转了多少，不管方向）
+        self.total_rotation = abs(angle_diff)
         
         # 检查是否完成一圈或搜索超时
-        if self.total_rotation >= 2 * math.pi or state_duration > self.search_timeout:
+        if self.total_rotation >= 2.1 * math.pi or state_duration > self.search_timeout:
             # 完成搜索
             self.ball_controller.stop_robot()
             self._change_state(PickupState.COMPLETED)
@@ -302,16 +336,24 @@ class BallTracker:
                 self.ball_controller.stop_robot()
                 return
         
-        # 检查是否已经对准中心
-        if self.ball_controller.is_ball_centered(target_ball):
-            # 球已对准中心，开始前进
-            self._change_state(PickupState.APPROACHING)
-            self.tracking_stats['center_hits'] += 1
-            self._emit_message("网球已对准中心，开始前进")
-            return
+        # 获取球的面积
+        ball_area = target_ball.get('area', 0)
+        
+        # 根据球的面积决定运动策略
+        if ball_area < self.area_threshold:
+            # 球面积小于阈值，认为球还在比较远的距离，使用前进+旋转的运动方式
+            self._track_ball_with_forward_rotation(target_ball)
         else:
-            # 继续追踪球到中心
-            self._track_ball_to_center(target_ball)
+            # 球面积大于等于阈值，认为球已经在附近，使用旋转到中心后直线前进的方式
+            if self.ball_controller.is_ball_centered(target_ball):
+                # 球已对准中心，开始前进
+                self._change_state(PickupState.APPROACHING)
+                self.tracking_stats['center_hits'] += 1
+                self._emit_message("网球已对准中心，开始前进")
+                return
+            else:
+                # 继续追踪球到中心
+                self._track_ball_to_center(target_ball)
         
         # 超时检查
         if state_duration > self.search_timeout:
@@ -360,7 +402,7 @@ class BallTracker:
             # 后退完成，开始360度搜索
             self.ball_controller.stop_robot()
             self._change_state(PickupState.SEARCHING)
-            self.rotation_start_angle = 0
+            self.rotation_start_angle = self._get_robot_z_angle()
             self.total_rotation = 0
             self._emit_message("后退完成，开始360度搜索")
     
@@ -391,6 +433,10 @@ class BallTracker:
         
         # 发送跟踪状态更新
         if self.socketio:
+            # 获取当前使用的动态阈值
+            ball_area = target_ball.get('area', 0)
+            current_tolerance = self.ball_controller.get_dynamic_center_tolerance(ball_area)
+            
             self.socketio.emit('ball_tracking_update', {
                 'target_ball': {
                     'center': [float(target_ball['center'][0]), float(target_ball['center'][1])],
@@ -400,7 +446,49 @@ class BallTracker:
                 },
                 'control': {
                     'error': float(control_output['error']),
-                    'angular_velocity': float(control_output['angular_velocity'])
+                    'angular_velocity': float(control_output['angular_velocity']),
+                    'current_center_tolerance': float(current_tolerance)
+                },
+                'state': self.current_state.value,
+                'stats': self.tracking_stats
+            })
+    
+    def _track_ball_with_forward_rotation(self, target_ball: dict):
+        """
+        使用前进+旋转的方式跟踪目标球（用于远距离球）
+        
+        Args:
+            target_ball: 目标球信息
+        """
+        distance_to_center = target_ball['distance_to_center']
+        
+        # 更新统计信息
+        self.tracking_stats['last_target_distance'] = float(distance_to_center)
+        
+        # 使用控制器计算控制输出
+        control_output = self.ball_controller.calculate_control_output(target_ball)
+
+        # 发送前进+旋转的组合命令
+        self.ball_controller.send_forward_and_rotate_command(2.5 * control_output['angular_velocity'])
+        
+        # 发送跟踪状态更新
+        if self.socketio:
+            # 获取当前使用的动态阈值
+            ball_area = target_ball.get('area', 0)
+            current_tolerance = self.ball_controller.get_dynamic_center_tolerance(ball_area)
+            
+            self.socketio.emit('ball_tracking_update', {
+                'target_ball': {
+                    'center': [float(target_ball['center'][0]), float(target_ball['center'][1])],
+                    'score': float(target_ball['score']),
+                    'distance_to_center': float(distance_to_center),
+                    'area': float(target_ball['area'])
+                },
+                'control': {
+                    'error': float(control_output['error']),
+                    'angular_velocity': float(control_output['angular_velocity']),
+                    'mode': 'forward_and_rotate',
+                    'current_center_tolerance': float(current_tolerance)
                 },
                 'state': self.current_state.value,
                 'stats': self.tracking_stats
@@ -422,44 +510,6 @@ class BallTracker:
                 'stats': self.tracking_stats
             })
     
-    def update_parameters(self, params: dict):
-        """
-        更新控制参数
-        
-        Args:
-            params: 参数字典
-        """
-        # 更新状态机参数
-        if 'pickup_timeout' in params:
-            self.pickup_timeout = max(1.0, min(10.0, params['pickup_timeout']))
-        
-        if 'backup_duration' in params:
-            self.backup_duration = max(0.5, min(5.0, params['backup_duration']))
-        
-        if 'search_timeout' in params:
-            self.search_timeout = max(5.0, min(30.0, params['search_timeout']))
-        
-        if 'rotation_speed' in params:
-            self.rotation_speed = max(0.1, min(1.0, params['rotation_speed']))
-        
-        # 委托给控制器更新其他参数
-        return self.ball_controller.update_parameters(params)
-    
-    def get_current_parameters(self):
-        """获取当前参数"""
-        # 获取控制器参数
-        controller_params = self.ball_controller.get_current_parameters()
-        
-        # 添加状态机参数
-        controller_params.update({
-            'pickup_timeout': self.pickup_timeout,
-            'backup_duration': self.backup_duration,
-            'search_timeout': self.search_timeout,
-            'rotation_speed': self.rotation_speed,
-            'ball_lost_timeout': self.ball_lost_timeout
-        })
-        
-        return controller_params
     
     def reset_statistics(self):
         """重置统计信息"""
@@ -500,7 +550,7 @@ class BallTracker:
             self._change_state(PickupState.SEARCHING)
             self.ball_controller.reset_pid()
             # 初始化搜索参数
-            self.rotation_start_angle = 0
+            self.rotation_start_angle = self._get_robot_z_angle()
             self.total_rotation = 0
             self._emit_message("重启拾取过程，开始360度搜索")
             

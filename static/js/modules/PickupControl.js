@@ -95,51 +95,6 @@
             }
         }
         
-        // 获取拾取参数
-        async getPickupParameters() {
-            try {
-                const response = await fetch('/api/pickup/parameters', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                });
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    return result.parameters;
-                }
-            } catch (error) {
-                console.error('获取拾取参数失败:', error);
-                return null;
-            }
-        }
-        
-        // 更新拾取参数
-        async updatePickupParameters(params) {
-            try {
-                const response = await fetch('/api/pickup/parameters', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(params)
-                });
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    this.messageHandler.showMessage(result.message, 'success');
-                    return result;
-                } else {
-                    this.messageHandler.showMessage(result.message, 'error');
-                    return result;
-                }
-            } catch (error) {
-                const errorMsg = `参数更新失败: ${error.message}`;
-                this.messageHandler.showMessage(errorMsg, 'error');
-                return { success: false, message: errorMsg };
-            }
-        }
         
         // 重置统计信息
         async resetStatistics() {

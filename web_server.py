@@ -139,23 +139,6 @@ class WebRobotController:
             result = self.ball_tracker.get_pickup_status()
             return jsonify(result)
         
-        @self.app.route('/api/pickup/parameters', methods=['GET', 'POST'])
-        def handle_pickup_parameters():
-            """处理拾取模式参数"""
-            if request.method == 'GET':
-                params = self.ball_tracker.get_current_parameters()
-                return jsonify({'status': 'success', 'parameters': params})
-            else:
-                try:
-                    data = request.get_json()
-                    if not data:
-                        return jsonify({'status': 'error', 'message': '无效的JSON数据'})
-                    
-                    result = self.ball_tracker.update_parameters(data)
-                    return jsonify(result)
-                except Exception as e:
-                    return jsonify({'status': 'error', 'message': str(e)})
-        
         @self.app.route('/api/pickup/reset_stats', methods=['POST'])
         def reset_pickup_stats():
             """重置拾取统计信息"""

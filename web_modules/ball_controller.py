@@ -30,10 +30,19 @@ class BallController:
         self.screen_center_y = self.screen_height // 2
         
         # 控制参数
-        self.center_tolerance = 30  # 中心区域容差（像素）
+        self.center_tolerance = 30  # 默认中心区域容差（像素）
         self.min_confidence = 0.6   # 最小置信度
         self.angular_speed_base = 0.05  # 基础角速度 rad/s
         self.max_angular_speed = 0.15   # 最大角速度 rad/s
+        
+        # 动态中心区域阈值配置
+        self.dynamic_center_tolerance = {
+            'large_ball_area': 2000.0,      # 大球面积阈值
+            'medium_ball_area': 1500.0,     # 中球面积阈值
+            'large_ball_tolerance': 55,     # 大球时的中心容差
+            'medium_ball_tolerance': 50,    # 中球时的中心容差
+            'small_ball_tolerance': 20      # 小球时的中心容差
+        }
         
         # 前进控制参数
         self.forward_speed = 0.2  # 前进速度 m/s
@@ -127,9 +136,29 @@ class BallController:
         
         return target_ball
     
+    def get_dynamic_center_tolerance(self, ball_area: float) -> float:
+        """
+        根据球的面积计算动态的中心区域容差
+        
+        Args:
+            ball_area: 球的面积（px²）
+            
+        Returns:
+            动态计算的中心区域容差
+        """
+        config = self.dynamic_center_tolerance
+        
+        if ball_area >= config['large_ball_area']:
+            return config['large_ball_tolerance']
+        elif ball_area >= config['medium_ball_area']:
+            return config['medium_ball_tolerance']
+        else:
+            return config['small_ball_tolerance']
+    
     def is_ball_centered(self, target_ball: dict) -> bool:
         """
         检查球是否已经在水平中心区域（只考虑X轴）
+        使用基于球面积的动态阈值
         
         Args:
             target_ball: 目标球信息
@@ -138,7 +167,12 @@ class BallController:
             True如果球在水平中心区域
         """
         distance_to_center = target_ball['distance_to_center']
-        return distance_to_center <= self.center_tolerance
+        ball_area = target_ball.get('area', 0)
+        
+        # 使用动态阈值
+        dynamic_tolerance = self.get_dynamic_center_tolerance(ball_area)
+        
+        return distance_to_center <= dynamic_tolerance
     
     
     def calculate_control_output(self, target_ball: dict) -> dict:
@@ -326,61 +360,37 @@ class BallController:
                 return False
         return False
     
+    def send_forward_and_rotate_command(self, angular_velocity: float, forward_speed: float = None) -> bool:
+        """
+        发送前进+旋转的组合命令
+        
+        Args:
+            angular_velocity: 角速度 (rad/s)
+            forward_speed: 前进速度，如果为None则使用默认速度
+            
+        Returns:
+            True如果命令发送成功
+        """
+        if forward_speed is None:
+            forward_speed = self.forward_speed
+            
+        if self.robot_controller and hasattr(self.robot_controller, 'robot_running') and self.robot_controller.robot_running:
+            try:
+                # 同时前进和旋转
+                result = self.robot_controller.set_velocity(forward_speed, 0.0, -angular_velocity)
+                print(f"前进+旋转命令{forward_speed} {angular_velocity}")
+                if result.get('status') != 'success':
+                    print(f"前进+旋转命令执行失败: {result.get('message', '未知错误')}")
+                    return False
+                return True
+            except Exception as e:
+                print(f"发送前进+旋转命令失败: {e}")
+                return False
+        return False
+    
     def reset_pid(self):
         """重置PID控制器"""
         self.prev_error = 0
         self.integral = 0
         self.last_time = time.time()
     
-    def update_parameters(self, params: dict):
-        """
-        更新控制参数
-        
-        Args:
-            params: 参数字典
-            
-        Returns:
-            更新结果和当前参数
-        """
-        if 'center_tolerance' in params:
-            self.center_tolerance = max(10, min(100, params['center_tolerance']))
-        
-        if 'min_confidence' in params:
-            self.min_confidence = max(0.1, min(1.0, params['min_confidence']))
-        
-        if 'max_angular_speed' in params:
-            self.max_angular_speed = max(0.1, min(2.0, params['max_angular_speed']))
-        
-        if 'kp' in params:
-            self.kp = max(0.0001, min(0.01, params['kp']))
-        
-        if 'ki' in params:
-            self.ki = max(0, min(0.001, params['ki']))
-        
-        if 'kd' in params:
-            self.kd = max(0, min(0.01, params['kd']))
-        
-        if 'forward_speed' in params:
-            self.forward_speed = max(0.1, min(1.0, params['forward_speed']))
-        
-        # 重置PID控制器
-        self.reset_pid()
-        
-        return {
-            'status': 'success',
-            'message': '参数更新成功',
-            'current_params': self.get_current_parameters()
-        }
-    
-    def get_current_parameters(self):
-        """获取当前参数"""
-        return {
-            'center_tolerance': self.center_tolerance,
-            'min_confidence': self.min_confidence,
-            'max_angular_speed': self.max_angular_speed,
-            'kp': self.kp,
-            'ki': self.ki,
-            'kd': self.kd,
-            'detection_timeout': self.detection_timeout,
-            'forward_speed': self.forward_speed
-        }
