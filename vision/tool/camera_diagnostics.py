@@ -36,7 +36,7 @@ def get_camera_properties():
     
     return camera_properties
 
-def diagnose_camera(camera_index=0):
+def attribute_diagnosis_camera(camera_index=0):
     """诊断指定摄像头的属性"""
     print(f"正在诊断摄像头 {camera_index}...")
     
@@ -110,7 +110,16 @@ def diagnose_camera(camera_index=0):
                 mode_desc = "手动" if test_mode == 0.25 else "自动"
                 print(f"    设置 {mode_desc} ({test_mode}) -> 实际 {actual_mode}")
     
-    print()
+    
+    current_exposure = cap.get(cv2.CAP_PROP_EXPOSURE)
+    auto_exposure_mode = 0.25  # 开始使用手动模式
+    
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, auto_exposure_mode)
+    return cap
+    
+def diagnose_camera(camera_index=0):
+    """诊断指定摄像头的属性"""
+    cap = attribute_diagnosis_camera(camera_index)
     
     # 测试实时曝光调整效果
     print("=== 实时曝光测试 ===")
@@ -119,10 +128,6 @@ def diagnose_camera(camera_index=0):
     print("按 '2' 增加曝光")
     print("按 '3' 切换自动/手动曝光")
     
-    current_exposure = cap.get(cv2.CAP_PROP_EXPOSURE)
-    auto_exposure_mode = 0.25  # 开始使用手动模式
-    
-    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, auto_exposure_mode)
     
     while True:
         ret, frame = cap.read()

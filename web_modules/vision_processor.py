@@ -13,6 +13,7 @@ import numpy as np
 
 from vision.tennis_detector import TennisDetector
 from vision.camera_manager import CameraConfig, CameraManager, PerformanceMonitor
+from vision.tool.camera_diagnostics import attribute_diagnosis_camera
 
 
 class VisionProcessor:
@@ -46,6 +47,8 @@ class VisionProcessor:
     
     def _init_vision(self):
         """初始化视觉系统"""
+        attribute_diagnosis_camera(camera_index=0) 
+        
         try:
             # 检查模型文件
             if not os.path.exists(self.model_path):
